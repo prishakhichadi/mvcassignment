@@ -10,7 +10,7 @@ import (
 type Town struct {
 	ID        string    `db:"id" json:"id"`
 	PlayerID  string    `db:"player_id" json:"player_id"`
-	Level     int       `db:"level" json:"level"` // Limits values cleanly from 1 to 4
+	Level     int       `db:"level" json:"level"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 
@@ -19,8 +19,8 @@ type TownBuilding struct {
 	TownID         string `db:"town_id" json:"town_id"`
 	BuildingInfoID string `db:"building_info_id" json:"building_info_id"`
 	Level          int    `db:"level" json:"level"`
-	X              int    `db:"x" json:"x"` // Coordinate on our 2D grid matrix
-	Y              int    `db:"y" json:"y"` // Coordinate on our 2D grid matrix
+	X              int    `db:"x" json:"x"`
+	Y              int    `db:"y" json:"y"` 
 }
 
 type BuildingInfo struct {
@@ -31,7 +31,7 @@ type BuildingInfo struct {
 	LevelInfo LevelJSON `db:"level_info" json:"level_info"`
 }
 
-// LevelJSON converts complex Postgres database JSON data into readable Go maps
+//LevelJSON converts Postgres db JSON data into readable Go maps
 type LevelJSON map[string]interface{}
 
 func (l LevelJSON) Value() (driver.Value, error) {
