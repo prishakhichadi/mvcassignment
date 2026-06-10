@@ -1,14 +1,23 @@
+CREATE TYPE battle_outcome AS ENUM ('win', 'loss', 'draw');
+CREATE TYPE building_type AS ENUM ('resource', 'defense', 'army');
+CREATE TYPE achievement_type AS ENUM ('first_win', 'resources_looted', 'troops_trained', 'buildings_upgraded');
+
 CREATE TABLE "players"(
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "username" VARCHAR(255) NOT NULL,
-    "password" VARCHAR(255) NOT NULL,
+    "username" VARCHAR(255) NOT NULL UNIQUE,
+    "password" CHAR(255) NOT NULL,
     "created_at" TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
-    "wins_attack" INTEGER NOT NULL DEFAULT 0,
-    "wins_defense" INTEGER NOT NULL DEFAULT 0,
-    "trophy_count" INTEGER NOT NULL DEFAULT 0,
     "updated_at" TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
 );
 ALTER TABLE "players" ADD PRIMARY KEY("id");
+
+CREATE TABLE "player_stats"(
+    "player_id" UUID NOT NULL,
+    "wins_attack" INTEGER NOT NULL DEFAULT 0,
+    "wins_defense" INTEGER NOT NULL DEFAULT 0,
+    "trophy_count" INTEGER NOT NULL DEFAULT 0
+);
+ALTER TABLE "player_stats" ADD PRIMARY KEY("player_id");
 
 CREATE TABLE "town"(
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -22,7 +31,7 @@ CREATE TABLE "building_info"(
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" VARCHAR(255) NOT NULL,
     "town_level" INTEGER NOT NULL,
-    "type" VARCHAR(255) NOT NULL,
+    "type" building_type NOT NULL,
     "level_info" JSON NOT NULL
 );
 ALTER TABLE "building_info" ADD PRIMARY KEY("id");
@@ -69,7 +78,7 @@ CREATE TABLE "battles"(
     "attacker_id" UUID NOT NULL,
     "defender_id" UUID NOT NULL,
     "stars" INTEGER NOT NULL DEFAULT 0,
-    "outcome" VARCHAR(255) NOT NULL,
+    "outcome" battle_outcome NOT NULL,
     "start_time" TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
     "end_time" TIMESTAMP(0) WITHOUT TIME ZONE,
     "log" JSON,
@@ -92,12 +101,13 @@ ALTER TABLE "troop_record" ADD PRIMARY KEY("id");
 CREATE TABLE "achievements_log"(
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "player_id" UUID NOT NULL,
-    "type" VARCHAR(255) NOT NULL,
+    "type" achievement_type NOT NULL,
     "created_at" TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
 );
 ALTER TABLE "achievements_log" ADD PRIMARY KEY("id");
 
 -- Foreign keys
+ALTER TABLE "player_stats" ADD CONSTRAINT "player_stats_player_id_foreign" FOREIGN KEY("player_id") REFERENCES "players"("id");
 ALTER TABLE "town" ADD CONSTRAINT "town_player_id_foreign" FOREIGN KEY("player_id") REFERENCES "players"("id");
 ALTER TABLE "resources" ADD CONSTRAINT "resources_player_id_foreign" FOREIGN KEY("player_id") REFERENCES "players"("id");
 ALTER TABLE "player_troop" ADD CONSTRAINT "player_troop_player_id_foreign" FOREIGN KEY("player_id") REFERENCES "players"("id");
