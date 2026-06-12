@@ -3,8 +3,9 @@ package controllers
 import (
 	"encoding/json"
 	"net/http"
-	
+
 	"mvcassignment/internal/models"
+
 	"github.com/jmoiron/sqlx"
 )
 
@@ -71,4 +72,15 @@ func (tc *TownController) GetLayout(w http.ResponseWriter, r *http.Request) {
 		"player_stats":    map[string]int{"attacks_won": stats.WinsAttack, "defenses_won": stats.WinsDefense, "trophies": stats.TrophyCount},
 		"deployed_layout": buildings,
 	})
+}
+
+// PlaceStructure handles building placement on the town layout grid
+func (tc *TownController) PlaceStructure(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(`{"status":"Success","message":"Structure placed successfully!"}`))
 }

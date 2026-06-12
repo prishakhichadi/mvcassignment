@@ -1,5 +1,5 @@
 CREATE TYPE battle_outcome AS ENUM ('win', 'loss', 'draw');
-CREATE TYPE building_type AS ENUM ('resource', 'defense', 'army');
+CREATE TYPE building_type AS ENUM ('resource', 'defense', 'army', 'townhall');
 CREATE TYPE achievement_type AS ENUM ('first_win', 'resources_looted', 'troops_trained', 'buildings_upgraded');
 
 CREATE TABLE "players"(
@@ -63,6 +63,8 @@ CREATE TABLE "player_troop"(
     "level" INTEGER NOT NULL DEFAULT 1
 );
 ALTER TABLE "player_troop" ADD PRIMARY KEY("id");
+
+ALTER TABLE "player_troop" ADD CONSTRAINT "player_troop_unique" UNIQUE (player_id, troop_info_id, level);
 
 CREATE TABLE "resources"(
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),

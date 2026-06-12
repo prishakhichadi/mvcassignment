@@ -1,0 +1,12 @@
+$kind: http-request
+name: req3
+url: http://localhost:8080/register
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "username": "chief_9",
+      "password": "pswd4"
+    }
+order: 3168016336951869

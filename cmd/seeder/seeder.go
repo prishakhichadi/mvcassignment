@@ -1,4 +1,4 @@
-/*this file writes rules into the database*/
+/*rules*/
 
 package main
 
@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"mvcassignment/config"
+
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -13,7 +14,6 @@ import (
 func main() {
 	db := config.ConnectDB()
 	defer db.Close()
-
 	log.Println("beginning database seeding")
 	seedTroops(db)
 	seedBuildings(db)

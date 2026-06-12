@@ -1,0 +1,7 @@
+$kind: http-request
+name: "4"
+url: http://localhost:8080/town/layout
+method: GET
+auth:
+  type: bearer
+order: 3637362014642488

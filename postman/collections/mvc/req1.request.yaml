@@ -1,0 +1,11 @@
+$kind: http-request
+url: ""
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "username": "chief_gopher",
+      "password": "securepassword123"
+    }
+order: 1781074958480
