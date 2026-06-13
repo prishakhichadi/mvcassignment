@@ -8,9 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type ctxKey string
-
-const PlayerContextKey ctxKey = "player_id"
+const PlayerContextKey = "player_id"
 
 func ContentGuard(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +20,7 @@ func ContentGuard(next http.HandlerFunc) http.HandlerFunc {
 
 		tokenStr := strings.TrimPrefix(header, "Bearer ")
 		claims := &UserClaims{}
-		
+
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
 			return secretKey, nil
 		})
@@ -32,6 +30,6 @@ func ContentGuard(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		ctx := context.WithValue(r.Context(), PlayerContextKey, claims.PlayerID)
-		next.ServeHTTP(w, r.WithContext(ctx))
+		next(w, r.WithContext(ctx))
 	}
 }

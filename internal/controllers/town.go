@@ -13,11 +13,15 @@ type TownController struct {
 	DB *sqlx.DB
 }
 
-type StructurePlacementRequest struct {
-	BuildingName string `json:"building_name"`
-	X            int    `json:"x"`
-	Y            int    `json:"y"`
-}
+/*type StructurePlacementRequest struct {
+
+    BuildingName string `json:"building_name"`
+
+    X            int    `json:"x"`
+
+    Y            int    `json:"y"`
+
+}*/
 
 func (tc *TownController) GetLayout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -31,56 +35,62 @@ func (tc *TownController) GetLayout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//fetch core town info
+	//town details
 	var town models.Town
-	townQuery := `SELECT id, player_id, level, created_at FROM town WHERE player_id = $1`
-	if err := tc.DB.Get(&town, townQuery, playerID); err != nil {
+	if err := tc.DB.Get(&town, "SELECT id, player_id, level, created_at FROM town WHERE player_id = $1", playerID); err != nil {
 		http.Error(w, "Town records not initialized for this account", http.StatusNotFound)
 		return
 	}
 
-	// fetch balances (Gold & Elixir) info
+	//get gold/elixir balances
 	var resources models.Resources
-	resQuery := `SELECT id, player_id, gold, elixir, updated_at FROM resources WHERE player_id = $1`
-	if err := tc.DB.Get(&resources, resQuery, playerID); err != nil {
+	if err := tc.DB.Get(&resources, "SELECT id, player_id, gold, elixir, updated_at FROM resources WHERE player_id = $1", playerID); err != nil {
 		http.Error(w, "Resource records missing for this account", http.StatusInternalServerError)
 		return
 	}
 
-	//fetch player strategy career stats from player_stats table
+	//get player records
 	var stats models.PlayerStats
-	statsQuery := `SELECT player_id, wins_attack, wins_defense, trophy_count FROM player_stats WHERE player_id = $1`
-	if err := tc.DB.Get(&stats, statsQuery, playerID); err != nil {
+	if err := tc.DB.Get(&stats, "SELECT player_id, wins_attack, wins_defense, trophy_count FROM player_stats WHERE player_id = $1", playerID); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	//fetch every structural asset on the layout map grid matrix
+	//layout grid
 	buildings, err := models.GetTownBuildings(tc.DB, town.ID)
 	if err != nil {
 		http.Error(w, "Failed to compile grid layout coordinate map", http.StatusInternalServerError)
 		return
 	}
 
-	//return a overview back to client
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"player_id":       playerID,
-		"town_id":         town.ID,
-		"town_level":      town.Level,
-		"current_balance": map[string]int64{"gold": resources.Gold, "elixir": resources.Elixir},
-		"player_stats":    map[string]int{"attacks_won": stats.WinsAttack, "defenses_won": stats.WinsDefense, "trophies": stats.TrophyCount},
+	json.NewEncoder(w).Encode(map[string]any{
+		"player_id":  playerID,
+		"town_id":    town.ID,
+		"town_level": town.Level,
+		"current_balance": map[string]int64{
+			"gold":   resources.Gold,
+			"elixir": resources.Elixir,
+		},
+		"player_stats": map[string]int{
+			"attacks_won":  stats.WinsAttack,
+			"defenses_won": stats.WinsDefense,
+			"trophies":     stats.TrophyCount,
+		},
 		"deployed_layout": buildings,
 	})
 }
 
-// PlaceStructure handles building placement on the town layout grid
 func (tc *TownController) PlaceStructure(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(`{"status":"Success","message":"Structure placed successfully!"}`))
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "success",
+		"message": "structure placed!",
+	})
 }
