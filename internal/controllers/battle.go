@@ -22,7 +22,7 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 		}
 
 		// Pull the authenticated user ID securely out of request context strings
-		attackerID, ok := r.Context().Value("userID").(string)
+		attackerID, ok := r.Context().Value(PlayerContextKey).(string)
 		if !ok || attackerID == "" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -53,7 +53,7 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 
 		// 2. CHECK DEFENSE: Count structural assets deployed inside target town grid
 		var buildingCount int
-		countDefenses := `SELECT COUNT(*) FROM player_buildings WHERE town_id = $1`
+		countDefenses := `SELECT COUNT(*) FROM town_buildings WHERE town_id = $1`
 		if err := tx.Get(&buildingCount, countDefenses, targetProfile.TownID); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -61,7 +61,7 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 
 		// 3. CHECK OFFENSE: Count total unit strengths currently available in attacker's barracks
 		var troopCount int
-		countTroops := `SELECT COALESCE(SUM(quantity), 0) FROM player_troops WHERE player_id = $1`
+		countTroops := `SELECT COALESCE(SUM(quantity), 0) FROM player_troop WHERE player_id = $1`
 		if err := tx.Get(&troopCount, countTroops, attackerID); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -81,16 +81,16 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 
 		if destruction >= 100 {
 			scoreStars = 3
-			raidOutcome = "WIN"
+			raidOutcome = "win"
 		} else if destruction >= 50 {
 			scoreStars = 2
-			raidOutcome = "WIN"
+			raidOutcome = "win"
 		} else if destruction > 0 {
 			scoreStars = 1
-			raidOutcome = "WIN"
+			raidOutcome = "win"
 		} else {
 			scoreStars = 0
-			raidOutcome = "FAIL"
+			raidOutcome = "loss"
 		}
 
 		// Calculate flat structural resource loot fractions
@@ -98,14 +98,14 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 		lootedElixir := int64(destruction * 100)
 
 		// 5. UPDATE ATTACKER ECONOMY BANKING
-		updateAttacker := `UPDATE player_profiles SET gold = gold + $1, elixir = elixir + $2 WHERE player_id = $3`
+		updateAttacker := `UPDATE resources SET gold = gold + $1, elixir = elixir + $2 WHERE player_id = $3`
 		if _, err := tx.Exec(updateAttacker, lootedGold, lootedElixir, attackerID); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		// 6. CLEAR USED TROOP ARMY ROSTERS
-		clearBarracks := `DELETE FROM player_troops WHERE player_id = $1`
+		clearBarracks := `DELETE FROM player_troop WHERE player_id = $1`
 		if _, err := tx.Exec(clearBarracks, attackerID); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
