@@ -24,15 +24,6 @@ type authRequest struct {
 	Password string `json:"password"`
 }
 
-type regResponse struct {
-	PlayerID string `json:"player_id"`
-}
-
-type loginResponse struct {
-	Token   string `json:"token"`
-	Expires string `json:"expires"`
-}
-
 type UserClaims struct {
 	PlayerID string `json:"player_id"`
 	jwt.RegisteredClaims
@@ -64,7 +55,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(regResponse{PlayerID: pID})
+	json.NewEncoder(w).Encode(map[string]string{"player_id": pID})
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -80,23 +71,32 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var p models.Player
-	err := h.DB.Get(&p, "SELECT id, username, password, created_at FROM players WHERE username = $1", req.Username)
-	if err == sql.ErrNoRows || bcrypt.CompareHashAndPassword([]byte(p.Password), []byte(req.Password)) != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	} else if err != nil {
+	query := "SELECT id, username, password, created_at FROM players WHERE username = $1"
+	err := h.DB.Get(&p, query, req.Username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
+	if err := bcrypt.CompareHashAndPassword([]byte(p.Password), []byte(req.Password)); err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	//token valid for 24 hours
 	expires := time.Now().Add(24 * time.Hour)
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &UserClaims{
+	claims := &UserClaims{
 		PlayerID: p.ID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expires),
 		},
-	})
+	}
 
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenStr, err := token.SignedString(secretKey)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -104,8 +104,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(loginResponse{
-		Token:   tokenStr,
-		Expires: expires.Format(time.RFC3339),
+	json.NewEncoder(w).Encode(map[string]string{
+		"token":   tokenStr,
+		"expires": expires.Format(time.RFC3339),
 	})
 }
