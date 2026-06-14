@@ -28,6 +28,9 @@ seed:
 run:
 	go run $(serverpath)
 
+test:
+	go test ./...
+
 clean:
 	go clean
 	rm -rf bin/
