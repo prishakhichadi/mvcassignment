@@ -1,0 +1,6 @@
+/*
+test star calc
+loot calc
+matchmaking
+troop count not null check
+*/

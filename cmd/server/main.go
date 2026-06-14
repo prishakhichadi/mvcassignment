@@ -18,9 +18,8 @@ func main() {
 
 	http.HandleFunc("/register", auth.Register)
 	http.HandleFunc("/login", auth.Login)
-
-	http.HandleFunc("/town/layout", controllers.ContentGuard(town.GetLayout))
-	http.HandleFunc("/town/place", controllers.ContentGuard(town.PlaceStructure))
+	http.HandleFunc("/town/layout", controllers.ContentGuard(town.GetLayout))     /*TEST*/
+	http.HandleFunc("/town/place", controllers.ContentGuard(town.PlaceStructure)) /*TEST*/
 	http.HandleFunc("/troop/train", controllers.ContentGuard(troop.TrainUnitsInstant))
 	http.HandleFunc("/troop/attack", controllers.ContentGuard(controllers.ExecuteRaid(dbConn)))
 
