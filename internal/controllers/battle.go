@@ -116,6 +116,38 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 			return
 		}
 
+		//fetch live stats
+		var liveStats struct {
+			WinsAttack  int `db:"wins_attack"`
+			WinsDefense int `db:"wins_defense"`
+			TrophyCount int `db:"trophy_count"`
+		}
+		if err := tx.Get(&liveStats, "SELECT wins_attack, wins_defense, trophy_count FROM players WHERE id = $1", attackerID); err == nil {
+
+			// Define a structured list of combat achievements to check dynamically
+			combatMilestones := []struct {
+				Condition bool
+				Type      string
+			}{
+				{liveStats.WinsAttack >= 1, "First Blood"},
+				{liveStats.WinsAttack >= 10, "Conqueror Tier I"},
+				{liveStats.WinsAttack >= 50, "Conqueror Tier II"},
+				{liveStats.WinsDefense >= 5, "Unshakable Wall"},
+				{liveStats.TrophyCount >= 500, "Rising Star"},
+				{liveStats.TrophyCount >= 1250, "Sweet Victory"},
+			}
+
+			// Loop through each threshold and log if achieved
+			for _, m := range combatMilestones {
+				if m.Condition {
+					_, _ = tx.Exec(`
+						INSERT INTO achievements_log (id, player_id, type, created_at) 
+						VALUES (gen_random_uuid(), $1, $2, NOW()) 
+						ON CONFLICT DO NOTHING`, attackerID, m.Type)
+				}
+			}
+		}
+
 		//commit
 		if err := tx.Commit(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)

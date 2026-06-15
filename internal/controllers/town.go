@@ -138,9 +138,23 @@ func (tc *TownController) PlaceStructure(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Achievement check for 5 items built
-	if count == 5 {
-		_, _ = tx.Exec("INSERT INTO achievements_log (id, player_id, type, created_at) VALUES (gen_random_uuid(), $1, 'Village Architect', NOW()) ON CONFLICT DO NOTHING", playerID)
+	buildingMilestones := []struct {
+		Condition bool
+		Type      string
+	}{
+		{count >= 1, "First Brick Placed"},
+		{count >= 5, "Village Architect"},
+		{count >= 10, "Fortress Builder"},
+		{count >= 20, "Empire Coordinator"},
+	}
+
+	for _, m := range buildingMilestones {
+		if m.Condition {
+			_, _ = tx.Exec(`
+				INSERT INTO achievements_log (id, player_id, type, created_at) 
+				VALUES (gen_random_uuid(), $1, $2, NOW()) 
+				ON CONFLICT DO NOTHING`, playerID, m.Type)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
