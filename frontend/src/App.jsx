@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import Auth from './components/auth'; 
+import Auth from './components/auth';
+import Dashboard from './components/dashboard'; // Connected your new Dashboard file!
 
 function App() {
   const [session, setSession] = useState(localStorage.getItem('vanguard_token') || '');
@@ -19,26 +20,8 @@ function App() {
       {!session ? (
         <Auth onAuthSuccess={saveSession} />
       ) : (
-        <div style={{ textAlign: 'center', paddingTop: '120px' }}>
-          <h2 style={{ color: '#f4f6f0' }}>⚔️ CAMPSITE ACCESS GRANTED ⚔️</h2>
-          <p style={{ color: '#d4a373' }}>Session profile is authenticated and active!</p>
-          
-          <button 
-            onClick={clearSession}
-            style={{ 
-              padding: '12px 24px', 
-              backgroundColor: '#ae2012', 
-              color: '#fff', 
-              border: 'none', 
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              borderRadius: '4px',
-              marginTop: '15px'
-            }}
-          >
-            LEAVE OUTPOST
-          </button>
-        </div>
+        // Swapped out the old text button for the full master game view dashboard panel!
+        <Dashboard token={session} onLogout={clearSession} />
       )}
     </div>
   );
