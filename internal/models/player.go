@@ -65,7 +65,7 @@ func CreateNewPlayer(db *sqlx.DB, username, passwordHash string) (string, error)
 	if err == nil {
 		_, err = tx.Exec(`
 			INSERT INTO town_buildings (id, town_id, building_info_id, level, x, y)
-			VALUES ($1, $2, $3, 1, 20, 20)`,
+			VALUES ($1, $2, $3, 1, 4, 4)`,
 			uuid.New().String(), townID, thInfoID)
 		if err != nil {
 			return "", err
