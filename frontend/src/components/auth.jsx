@@ -1,132 +1,179 @@
 import React, { useState } from 'react';
 
 function Auth({ onAuthSuccess }) {
-  const [showLogin, setShowLogin] = useState(true);
-  const [userTxt, setUserTxt] = useState('');
-  const [passTxt, setPassTxt] = useState('');
-  const [statusMsg, setStatusMsg] = useState('');
+  const [isLogin, setIsLogin] = useState(true);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleFormSubmit = async (event) => {
-    event.preventDefault();
-    setStatusMsg('');
+  function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-    const apiPath = showLogin ? '/player/login' : '/player/register';
-    
-    try {
-      const res = await fetch(`http://localhost:8080${apiPath}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: userTxt, password: passTxt }),
-      });
-
-      if (!res.ok) {
-        const fallbackErr = await res.text();
-        throw new Error(fallbackErr || 'Server rejected credentials');
-      }
-
-      const payload = await res.json();
-
-      if (showLogin) {
-        if (payload.token) {
-          onAuthSuccess(payload.token);
-        } else {
-          throw new Error('No auth token sent back by server');
-        }
-      } else {
-        alert('Campsite profile registered! Switch over to log in.');
-        setShowLogin(true);
-        setPassTxt('');
-      }
-    } catch (error) {
-      setStatusMsg(error.message);
+    let endpoint = '/register';
+    if (isLogin === true) {
+      endpoint = '/login';
     }
-  };
+
+    fetch('http://localhost:8080' + endpoint, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json' 
+      },
+      body: JSON.stringify({ 
+        username: username, 
+        password: password 
+      })
+    })
+    .then(function (res) {
+      if (res.ok === false) {
+        return res.text().then(function (errorTxt) {
+          throw new Error(errorTxt || 'Something went wrong');
+        });
+      }
+      return res.text(); 
+    })
+    .then(function (textData) {
+      if (isLogin === true) {
+        let parsedData = JSON.parse(textData);
+        onAuthSuccess(parsedData.token);
+      } else {
+        alert('Account created! You can now log in.');
+        setIsLogin(true);
+        setPassword('');
+      }
+      setLoading(false);
+    })
+    .catch(function (err) {
+      setError(err.message);
+      setLoading(false);
+    });
+  } 
+
+  function toggleAuthMode() {
+    if (isLogin === true) {
+      setIsLogin(false);
+    } else {
+      setIsLogin(true);
+    }
+    setError('');
+  }
 
   return (
-    <div className="auth-container" style={{
-      maxWidth: '380px',
-      margin: '80px auto',
-      padding: '25px',
-      backgroundColor: '#2b2d42', // Weathered Slate Wall Grey
-      border: '2px solid #00b4d8', // Vivid Sky-Blue Neon Border
-      borderRadius: '6px',
-      textAlign: 'center',
-      boxShadow: '0 8px 16px rgba(0,0,0,0.4)'
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#1a1c2e',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
     }}>
-      <h2 style={{ color: '#edf2f4', letterSpacing: '2px', fontSize: '20px' }}>
-        {showLogin ? '⚔️ STRONGHOLD: ACCESS' : '🛡️ STRONGHOLD: ENLIST'}
-      </h2>
-      
-      {statusMsg && (
-        <p style={{ color: '#ef233c', fontSize: '13px', backgroundColor: '#1d1e2c', padding: '8px', borderRadius: '4px' }}>
-          ⚠️ Notice: {statusMsg}
+      <div style={{
+        width: '360px',
+        backgroundColor: '#252740',
+        border: '1px solid #3d3f6b',
+        borderRadius: '8px',
+        padding: '32px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+      }}>
+        <h1 style={{ color: '#e8e8f0', textAlign: 'center', fontSize: '22px', marginBottom: '4px' }}>
+          ⚔️ Vanguard
+        </h1>
+        <p style={{ color: '#8888aa', textAlign: 'center', fontSize: '13px', marginBottom: '28px' }}>
+          {isLogin ? 'Sign in to your village' : 'Create a new village'}
         </p>
-      )}
 
-      <form onSubmit={handleFormSubmit}>
-        <div style={{ marginBottom: '14px' }}>
-          <input
-            type="text"
-            placeholder="Chieftain Name"
-            className="auth-input"
-            value={userTxt}
-            onChange={(e) => setUserTxt(e.target.value)}
-            required
-            style={{ 
-              padding: '10px', 
-              width: '85%', 
-              backgroundColor: '#1d1e2c', 
-              border: '1px solid #4a4e69', 
-              color: '#edf2f4',
-              borderRadius: '4px'
-            }}
-          />
-        </div>
-        <div style={{ marginBottom: '18px' }}>
-          <input
-            type="password"
-            placeholder="Secret Passphrase"
-            className="auth-input"
-            value={passTxt}
-            onChange={(e) => setPassTxt(e.target.value)}
-            required
-            style={{ 
-              padding: '10px', 
-              width: '85%', 
-              backgroundColor: '#1d1e2c', 
-              border: '1px solid #4a4e69', 
-              color: '#edf2f4',
-              borderRadius: '4px'
-            }}
-          />
-        </div>
-        <button 
-          type="submit" 
-          style={{ 
-            backgroundColor: '#7209b7', // Deep Royal Purple Call-to-Action
-            color: '#fff', 
-            padding: '12px', 
-            border: 'none', 
-            cursor: 'pointer',
-            fontWeight: 'bold',
+        {error !== '' ? (
+          <div style={{
+            backgroundColor: '#3d1a1a',
+            border: '1px solid #7a2020',
+            color: '#ff8888',
+            padding: '10px',
             borderRadius: '4px',
-            width: '92%',
-            boxShadow: '0 4px #3f076b',
-            letterSpacing: '1px'
-          }}
-        >
-          {showLogin ? 'BREACH GATEWAY' : 'INITIALIZE WALLS'}
-        </button>
-      </form>
+            fontSize: '13px',
+            marginBottom: '16px',
+          }}>
+            {error}
+          </div>
+        ) : null}
 
-      <div 
-        onClick={() => {
-          setShowLogin(!showLogin);
-          setStatusMsg('');
-        }} 
-        style={{ color: '#00b4d8', cursor: 'pointer', marginTop: '22px', fontSize: '13px', fontWeight: '500' }}
-      >
-        {showLogin ? "Claim a new territorial outpost" : "Return to fortress gates"}
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ display: 'block', color: '#aaaacc', fontSize: '13px', marginBottom: '6px' }}>
+              Username
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={function (e) { setUsername(e.target.value); }}
+              required
+              placeholder="Enter your username"
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                backgroundColor: '#1a1c2e',
+                border: '1px solid #3d3f6b',
+                borderRadius: '4px',
+                color: '#e8e8f0',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '22px' }}>
+            <label style={{ display: 'block', color: '#aaaacc', fontSize: '13px', marginBottom: '6px' }}>
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={function (e) { setPassword(e.target.value); }}
+              required
+              placeholder="Enter your password"
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                backgroundColor: '#1a1c2e',
+                border: '1px solid #3d3f6b',
+                borderRadius: '4px',
+                color: '#e8e8f0',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '12px',
+              backgroundColor: loading ? '#444466' : '#5b4fcf',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              letterSpacing: '0.5px',
+            }}
+          >
+            {loading === true ? 'Loading...' : isLogin ? 'Sign In' : 'Create Account'}
+          </button>
+        </form>
+
+        <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '13px', color: '#8888aa' }}>
+          {isLogin ? "Don't have an account? " : 'Already have an account? '}
+          <span
+            onClick={toggleAuthMode}
+            style={{ color: '#7b6fdc', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            {isLogin ? 'Register' : 'Sign in'}
+          </span>
+        </p>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Auth from './components/auth';
-import Dashboard from './components/dashboard'; // Connected your new Dashboard file!
+import Dashboard from './components/dashboard';
 
 function App() {
   const [session, setSession] = useState(localStorage.getItem('vanguard_token') || '');
@@ -20,7 +20,6 @@ function App() {
       {!session ? (
         <Auth onAuthSuccess={saveSession} />
       ) : (
-        // Swapped out the old text button for the full master game view dashboard panel!
         <Dashboard token={session} onLogout={clearSession} />
       )}
     </div>

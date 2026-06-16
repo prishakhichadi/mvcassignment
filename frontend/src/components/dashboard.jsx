@@ -5,10 +5,22 @@ function Dashboard({ token, onLogout }) {
   //menu switch tab: 'town', 'barracks', or 'attack'
   const [currentTab, setCurrentTab] = useState('town');
 
+  function switchToTown() {
+    setCurrentTab('town');
+  }
+
+  function switchToBarracks() {
+    setCurrentTab('barracks');
+  }
+
+  function switchToAttack() {
+    setCurrentTab('attack');
+  }
+
   return (
     <div className="game-layout" style={{ display: 'flex', height: '100vh', backgroundColor: '#1a1d1a' }}>
       
-      {}
+      {/* Sidebar controls */}
       <div className="sidebar" style={{
         width: '240px', backgroundColor: '#2b2d42', padding: '20px',
         borderRight: '3px solid #00b4d8', display: 'flex', flexDirection: 'column',
@@ -16,45 +28,45 @@ function Dashboard({ token, onLogout }) {
       }}>
         <div>
           <h3 style={{ color: '#edf2f4', textAlign: 'center', margin: '10px 0 25px 0', letterSpacing: '1px' }}>
-            👑 TOWN HQ CONTROL
+            TOWN HQ CONTROL
           </h3>
           
           <button 
-            onClick={() => setCurrentTab('town')}
+            onClick={switchToTown}
             style={{
               display: 'block', width: '100%', padding: '12px', margin: '10px 0',
               backgroundColor: currentTab === 'town' ? '#7209b7' : '#1d1e2c',
               color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'
             }}
           >
-            🛡️ TOWN LAYOUT
+            TOWN LAYOUT
           </button>
 
           <button 
-            onClick={() => setCurrentTab('barracks')}
+            onClick={switchToBarracks}
             style={{
               display: 'block', width: '100%', padding: '12px', margin: '10px 0',
               backgroundColor: currentTab === 'barracks' ? '#7209b7' : '#1d1e2c',
               color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'
             }}
           >
-            ⚔️ TRAIN FORCES
+            TRAIN FORCES
           </button>
 
           <button 
-            onClick={() => setCurrentTab('attack')}
+            onClick={switchToAttack}
             style={{
               display: 'block', width: '100%', padding: '12px', margin: '10px 0',
               backgroundColor: currentTab === 'attack' ? '#7209b7' : '#1d1e2c',
               color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'
             }}
           >
-            🔥 RAID CAMPAIGN
+            RAID CAMPAIGN
           </button>
         </div>
 
         <button 
-          onClick={onLogout}
+          onClick={onLogout} 
           style={{
             width: '100%', padding: '10px', backgroundColor: '#ef233c',
             color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'
@@ -64,18 +76,19 @@ function Dashboard({ token, onLogout }) {
         </button>
       </div>
 
-      {/* Right Content Screen */}
+      {/* Main viewport displays */}
       <div className="main-content" style={{ flex: 1, padding: '30px', overflowY: 'auto', color: '#edf2f4' }}>
         
-        {currentTab === 'town' && (
+        {}
+        {currentTab === 'town' ? (
           <div>
             <h2>TOWN METRICS & GRID SECTOR</h2>
             <p style={{ color: '#00b4d8' }}>Inspect your active structures below.</p>
             <TownGrid userToken={token} />
           </div>
-        )}
+        ) : null}
 
-        {currentTab === 'barracks' && (
+        {currentTab === 'barracks' ? (
           <div>
             <h2>ARMY BARRACKS</h2>
             <p style={{ color: '#00b4d8' }}>Recruit reinforcements using your local elixir reserves.</p>
@@ -83,9 +96,9 @@ function Dashboard({ token, onLogout }) {
               <p>[ Troop Recruitment Controls Placeholder ]</p>
             </div>
           </div>
-        )}
+        ) : null}
 
-        {currentTab === 'attack' && (
+        {currentTab === 'attack' ? (
           <div>
             <h2>COMBAT SIMULATION ENGAGEMENT</h2>
             <p style={{ color: '#ef233c' }}>Deploy your standing army to execute dynamic matchmaking sweeps.</p>
@@ -93,7 +106,7 @@ function Dashboard({ token, onLogout }) {
               <p>[ Live Target Matchmaking Framework Placeholder ]</p>
             </div>
           </div>
-        )}
+        ) : null}
 
       </div>
     </div>
