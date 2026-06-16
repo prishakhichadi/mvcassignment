@@ -27,12 +27,19 @@ function TownGrid({ userToken }) {
       return res.json();
     })
     .then(function(parsed) {
-      if (parsed.grid_matrix) {
-        setMapMatrix(parsed.grid_matrix);
-      } else {
-        throw new Error('Invalid payload structure from backend');
-      }
-      setLoading(false);
+        if (parsed.grid_matrix) {
+            setMapMatrix(parsed.grid_matrix);
+        }
+        else if (Array.isArray(parsed)) {
+            setMapMatrix(parsed);
+        }
+        else if (parsed.grid) {
+            setMapMatrix(parsed.grid);
+        }
+        else {
+            throw new Error('Unexpected backend response: ' + JSON.stringify(parsed));
+        }
+        setLoading(false);
     })
     .catch(function(err) {
       setErrorMsg(err.message);
@@ -69,7 +76,7 @@ function TownGrid({ userToken }) {
           throw new Error(errorTxt || 'Server rejected coordinate placement');
         });
       }
-      setPlacementStatus('Structure deployed down to town layout!');
+      setPlacementStatus('Structure successfully deployed to town layout!');
       fetchTownLayout(); 
     })
     .catch(function(err) {
@@ -82,67 +89,111 @@ function TownGrid({ userToken }) {
     setTargetY(clickedY);
   }
 
-  if (loading) return <p style={{ color: '#00b4d8' }}>Syncing town grid telemetry</p>;
-  if (errorMsg) return <p style={{ color: '#ef233c' }}>Town Map Error: {errorMsg}</p>;
+  if (loading === true) {
+    return <p style={{ color: '#8888aa', fontSize: '14px' }}>Syncing town grid telemetry...</p>;
+  }
+  
+  if (errorMsg !== '') {
+    return (
+      <div style={{ backgroundColor: '#3d1a1a', border: '1px solid #7a2020', color: '#ff8888', padding: '10px', borderRadius: '4px', fontSize: '13px' }}>
+        Town Map Error: {errorMsg}
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: '15px', color: '#edf2f4' }}>
+    <div style={{ color: '#e8e8f0' }}>
       
-      <div style={{ backgroundColor: '#1d1e2c', padding: '15px', borderRadius: '6px', marginBottom: '20px', border: '1px solid #4a4e69' }}>
-        <h4 style={{ margin: '0 0 10px 0', color: '#00b4d8' }}>TOWN BLUEPRINT DESIGNER</h4>
+      <div style={{ 
+        backgroundColor: '#252740', 
+        padding: '24px', 
+        borderRadius: '8px', 
+        marginBottom: '24px', 
+        border: '1px solid #3d3f6b',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+        maxWidth: '700px'
+      }}>
+        <h4 style={{ margin: '0 0 16px 0', color: '#e8e8f0', fontSize: '16px' }}>📐 TOWN BLUEPRINT DESIGNER</h4>
         
-        <form onSubmit={executePlacement} style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <label>Building: 
-            <select value={targetBuilding} onChange={function(e) { setTargetBuilding(e.target.value); }} style={{ marginLeft: '5px', padding: '5px', backgroundColor: '#2b2d42', color: '#fff', border: '1px solid #4a4e69' }}>
+        <form onSubmit={executePlacement} style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div>
+            <label style={{ display: 'block', color: '#aaaacc', fontSize: '12px', marginBottom: '6px' }}>Building Asset</label>
+            <select 
+              value={targetBuilding} 
+              onChange={function(e) { setTargetBuilding(e.target.value); }} 
+              style={{ padding: '10px 12px', backgroundColor: '#1a1c2e', color: '#e8e8f0', border: '1px solid #3d3f6b', borderRadius: '4px', fontSize: '14px' }}
+            >
               <option value="Cannon">Cannon</option>
               <option value="TownHall">TownHall</option>
               <option value="Barracks">Barracks</option>
             </select>
-          </label>
+          </div>
 
-          <label>X (0-9): 
-            <input type="number" min="0" max="9" value={targetX} onChange={function(e) { setTargetX(e.target.value); }} style={{ width: '45px', marginLeft: '5px', padding: '5px', backgroundColor: '#2b2d42', color: '#fff', border: '1px solid #4a4e69' }} />
-          </label>
+          <div>
+            <label style={{ display: 'block', color: '#aaaacc', fontSize: '12px', marginBottom: '6px' }}>Coordinate X</label>
+            <input 
+              type="number" min="0" max="9" value={targetX} 
+              onChange={function(e) { setTargetX(e.target.value); }} 
+              style={{ width: '65px', padding: '10px 12px', backgroundColor: '#1a1c2e', color: '#e8e8f0', border: '1px solid #3d3f6b', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }} 
+            />
+          </div>
 
-          <label>Y (0-9): 
-            <input type="number" min="0" max="9" value={targetY} onChange={function(e) { setTargetY(e.target.value); }} style={{ width: '45px', marginLeft: '5px', padding: '5px', backgroundColor: '#2b2d42', color: '#fff', border: '1px solid #4a4e69' }} />
-          </label>
+          <div>
+            <label style={{ display: 'block', color: '#aaaacc', fontSize: '12px', marginBottom: '6px' }}>Coordinate Y</label>
+            <input 
+              type="number" min="0" max="9" value={targetY} 
+              onChange={function(e) { setTargetY(e.target.value); }} 
+              style={{ width: '65px', padding: '10px 12px', backgroundColor: '#1a1c2e', color: '#e8e8f0', border: '1px solid #3d3f6b', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }} 
+            />
+          </div>
 
-          <button type="submit" style={{ backgroundColor: '#7209b7', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+          <button type="submit" style={{ backgroundColor: '#5b4fcf', color: '#fff', border: 'none', padding: '11px 20px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>
             DEPLOY INTO TOWN
           </button>
         </form>
         
-        {placementStatus && <p style={{ margin: '10px 0 0 0', fontSize: '13px', fontWeight: 'bold' }}>{placementStatus}</p>}
+        {placementStatus !== '' ? (
+          <div style={{ 
+            marginTop: '16px', 
+            padding: '10px', 
+            borderRadius: '4px', 
+            fontSize: '13px',
+            backgroundColor: placementStatus.includes('⚠️') ? '#3d1a1a' : '#1a3d22',
+            border: placementStatus.includes('⚠️') ? '1px solid #7a2020' : '1px solid #207a35',
+            color: placementStatus.includes('⚠️') ? '#ff8888' : '#88ff88'
+          }}>
+            {placementStatus}
+          </div>
+        ) : null}
       </div>
 
-      {}
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(10, 50px)', 
-        gridTemplateRows: 'repeat(10, 50px)', 
-        gap: '4px',
-        backgroundColor: '#1d1e2c',
-        padding: '10px',
-        borderRadius: '6px',
-        width: 'fit-content'
+        gridTemplateColumns: 'repeat(10, 52px)', 
+        gridTemplateRows: 'repeat(10, 52px)', 
+        gap: '6px',
+        backgroundColor: '#252740',
+        padding: '16px',
+        borderRadius: '8px',
+        border: '1px solid #3d3f6b',
+        width: 'fit-content',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.4)'
       }}>
         {mapMatrix.map(function(rowArr, yIndex) {
           return rowArr.map(function(tileValue, xIndex) {
             
-            
-            let tileBg = '#4d6e2a'; 
-            let borderStyle = '1px solid #3d5a1a';
+            let tileBg = '#2d3722'; 
+            let borderStyle = '1px solid #475931';
             
             if (tileValue === 'Cannon') { 
-              tileBg = '#8b263e'; 
-              borderStyle = '1px solid #ff4d6d'; 
+              tileBg = '#5c1d2e'; 
+              borderStyle = '1px solid #8c2e46'; 
             } else if (tileValue === 'TownHall') { 
-              tileBg = '#22577a'; 
-              borderStyle = '1px solid #38a3a5'; 
+              tileBg = '#1a3a5c'; 
+              borderStyle = '1px solid #2a5c8f'; 
             } else if (tileValue === 'Barracks') { 
-              tileBg = '#5a189a'; 
-              borderStyle = '1px solid #e0aaff'; 
+              tileBg = '#3d1a5c'; 
+              borderStyle = '1px solid #622a8f'; 
             }
 
             return (
@@ -156,15 +207,17 @@ function TownGrid({ userToken }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '8px',
+                  fontSize: '9px',
                   fontWeight: 'bold',
                   textTransform: 'uppercase',
-                  color: '#fff',
-                  borderRadius: '2px',
-                  cursor: 'pointer'
+                  color: '#e8e8f0',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  transition: 'background 0.2s'
                 }}
               >
-                {tileValue === 'EMPTY' ? xIndex + ',' + yIndex : tileValue}
+                {tileValue === 'EMPTY' ? xIndex + ',' + yIndex : tileValue.substring(0, 4)}
               </div>
             );
           });
