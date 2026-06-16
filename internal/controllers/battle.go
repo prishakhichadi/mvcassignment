@@ -29,145 +29,132 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		//matchmaking
-		var targetProfile struct {
-			TownID   string `db:"id"`        // Aligns with 'id' column in town table
-			PlayerID string `db:"player_id"` // Aligns with 'player_id' column in town table
+		// matchmaking
+		var target struct {
+			TownID   string `db:"id"`
+			PlayerID string `db:"player_id"`
 		}
-		findTarget := `SELECT id, player_id FROM town WHERE player_id != $1 LIMIT 1`
-		if err := tx.Get(&targetProfile, findTarget, attackerID); err != nil {
+		if err := tx.Get(&target, `SELECT id, player_id FROM town WHERE player_id != $1 LIMIT 1`, attackerID); err != nil {
 			if err == sql.ErrNoRows {
-				http.Error(w, "No available matching rival targets found.", http.StatusNotFound)
+				http.Error(w, "No opponents available", http.StatusNotFound)
 				return
 			}
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		//defense
-		var buildingCount int
-		countDefenses := `SELECT COUNT(*) FROM town_buildings WHERE town_id = $1`
-		if err := tx.Get(&buildingCount, countDefenses, targetProfile.TownID); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		//offense
+		// check attacker has troops
 		var troopCount int
-		countTroops := `SELECT COALESCE(SUM(quantity), 0) FROM player_troop WHERE player_id = $1`
-		if err := tx.Get(&troopCount, countTroops, attackerID); err != nil {
+		if err := tx.Get(&troopCount, `SELECT COALESCE(SUM(quantity), 0) FROM player_troop WHERE player_id = $1`, attackerID); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if troopCount == 0 {
+			http.Error(w, "Train some troops before attacking", http.StatusBadRequest)
+			return
+		}
+
+		// count defender buildings
+		var buildingCount int
+		if err := tx.Get(&buildingCount, `SELECT COUNT(*) FROM town_buildings WHERE town_id = $1`, target.TownID); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		if troopCount == 0 {
-			http.Error(w, "Your base camp is empty! Train some forces before raiding.", http.StatusBadRequest)
-			return
-		}
-
-		//calc
-		destruction := rand.Intn(101) // Generate score scale from 0 to 100%
-
-		var scoreStars int
-		var raidOutcome string
+		// battle simulation
+		destruction := rand.Intn(101)
+		var stars int
+		var outcome string
 
 		if destruction >= 100 {
-			scoreStars = 3
-			raidOutcome = "win"
+			stars = 3
+			outcome = "win"
 		} else if destruction >= 50 {
-			scoreStars = 2
-			raidOutcome = "win"
+			stars = 2
+			outcome = "win"
 		} else if destruction > 0 {
-			scoreStars = 1
-			raidOutcome = "win"
+			stars = 1
+			outcome = "win"
 		} else {
-			scoreStars = 0
-			raidOutcome = "loss"
+			stars = 0
+			outcome = "loss"
 		}
 
-		//gold elixir fractions
 		lootedGold := int64(destruction * 100)
 		lootedElixir := int64(destruction * 100)
 
-		//update resources
-		updateAttacker := `UPDATE resources SET gold = gold + $1, elixir = elixir + $2 WHERE player_id = $3`
-		if _, err := tx.Exec(updateAttacker, lootedGold, lootedElixir, attackerID); err != nil {
+		// give loot to attacker
+		if _, err := tx.Exec(`UPDATE resources SET gold = gold + $1, elixir = elixir + $2 WHERE player_id = $3`, lootedGold, lootedElixir, attackerID); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		//del used troop
-		clearBarracks := `DELETE FROM player_troop WHERE player_id = $1`
-		if _, err := tx.Exec(clearBarracks, attackerID); err != nil {
+		// update stats
+		if outcome == "win" {
+			tx.Exec(`UPDATE player_stats SET wins_attack = wins_attack + 1, trophy_count = trophy_count + $1 WHERE player_id = $2`, stars*10, attackerID)
+			tx.Exec(`UPDATE player_stats SET wins_defense = wins_defense + 1 WHERE player_id = $1`, target.PlayerID)
+		}
+
+		// clear troops
+		if _, err := tx.Exec(`DELETE FROM player_troop WHERE player_id = $1`, attackerID); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		//record matchmaking in battles table
-		metadata, _ := json.Marshal(map[string]interface{}{"mode": "automatic_simulation", "troops_deployed": troopCount})
-		emptySnapshot := []byte(`[]`)
+		// record battle
+		metadata, _ := json.Marshal(map[string]interface{}{
+			"mode":            "automatic_simulation",
+			"troops_deployed": troopCount,
+			"building_count":  buildingCount,
+		})
 
-		insertLog := `
+		if _, err := tx.Exec(`
 			INSERT INTO battles (id, attacker_id, defender_id, stars, outcome, start_time, end_time, log, gold_looted, elixir_looted, destr_pct, defense_snapshot)
-			VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, $9)`
-
-		if _, err := tx.Exec(insertLog, attackerID, targetProfile.PlayerID, scoreStars, raidOutcome, metadata, lootedGold, lootedElixir, destruction, emptySnapshot); err != nil {
+			VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, $9)`,
+			attackerID, target.PlayerID, stars, outcome, metadata, lootedGold, lootedElixir, destruction, []byte(`[]`)); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		//fetch live stats
-		var liveStats struct {
+		// log achievements (no ON CONFLICT since no unique constraint)
+		var stats struct {
 			WinsAttack  int `db:"wins_attack"`
-			WinsDefense int `db:"wins_defense"`
 			TrophyCount int `db:"trophy_count"`
 		}
-		if err := tx.Get(&liveStats, "SELECT wins_attack, wins_defense, trophy_count FROM players WHERE id = $1", attackerID); err == nil {
-
-			// Define a structured list of combat achievements to check dynamically
-			combatMilestones := []struct {
-				Condition bool
-				Type      string
-			}{
-				{liveStats.WinsAttack >= 1, "First Blood"},
-				{liveStats.WinsAttack >= 10, "Conqueror Tier I"},
-				{liveStats.WinsAttack >= 50, "Conqueror Tier II"},
-				{liveStats.WinsDefense >= 5, "Unshakable Wall"},
-				{liveStats.TrophyCount >= 500, "Rising Star"},
-				{liveStats.TrophyCount >= 1250, "Sweet Victory"},
+		if err := tx.Get(&stats, `SELECT wins_attack, trophy_count FROM player_stats WHERE player_id = $1`, attackerID); err == nil {
+			var existing int
+			if stats.WinsAttack >= 1 {
+				tx.Get(&existing, `SELECT COUNT(*) FROM achievements_log WHERE player_id = $1 AND type = 'first_win'`, attackerID)
+				if existing == 0 {
+					tx.Exec(`INSERT INTO achievements_log (id, player_id, type, created_at) VALUES (gen_random_uuid(), $1, 'first_win', NOW())`, attackerID)
+				}
 			}
-
-			// Loop through each threshold and log if achieved
-			for _, m := range combatMilestones {
-				if m.Condition {
-					_, _ = tx.Exec(`
-						INSERT INTO achievements_log (id, player_id, type, created_at) 
-						VALUES (gen_random_uuid(), $1, $2, NOW()) 
-						ON CONFLICT DO NOTHING`, attackerID, m.Type)
+			if stats.TrophyCount >= 100 {
+				tx.Get(&existing, `SELECT COUNT(*) FROM achievements_log WHERE player_id = $1 AND type = 'resources_looted'`, attackerID)
+				if existing == 0 {
+					tx.Exec(`INSERT INTO achievements_log (id, player_id, type, created_at) VALUES (gen_random_uuid(), $1, 'resources_looted', NOW())`, attackerID)
 				}
 			}
 		}
 
-		//commit
 		if err := tx.Commit(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		//0output
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"search_status": "Target Acquired",
-			"enemy_id":      targetProfile.PlayerID,
-			"combat_summary": map[string]interface{}{
-				"outcome":          raidOutcome,
-				"stars":            scoreStars,
-				"destruction_rate": destruction,
+			"status": "battle complete",
+			"result": map[string]interface{}{
+				"outcome":     outcome,
+				"stars":       stars,
+				"destruction": destruction,
 			},
-			"loot_secured": map[string]interface{}{
-				"gold_looted":   lootedGold,
-				"elixir_looted": lootedElixir,
+			"loot": map[string]int64{
+				"gold":   lootedGold,
+				"elixir": lootedElixir,
 			},
+			"enemy_id": target.PlayerID,
 		})
 	}
 }

@@ -15,7 +15,7 @@ type LeaderboardEntry struct {
 	WinsDefense int    `db:"wins_defense" json:"wins_defense"`
 }
 
-func getLeaderboard(db *sqlx.DB) http.HandlerFunc {
+func GetLeaderboard(db *sqlx.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)

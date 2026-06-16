@@ -3,9 +3,8 @@ package controllers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
-
-	"mvcassignment/internal/models"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -26,28 +25,32 @@ func (tc *TownController) GetLayout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var town models.Town
-	if err := tc.DB.Get(&town, "SELECT id, player_id, level, created_at FROM town WHERE player_id = $1", playerID); err != nil {
-		http.Error(w, "Town fetch error: "+err.Error(), http.StatusInternalServerError)
+	var town struct {
+		ID    string `db:"id"`
+		Level int    `db:"level"`
+	}
+	if err := tc.DB.Get(&town, `SELECT id, level FROM town WHERE player_id = $1`, playerID); err != nil {
+		http.Error(w, "Town not found", http.StatusNotFound)
 		return
 	}
 
-	var res models.Resources
-	if err := tc.DB.Get(&res, "SELECT id, player_id, gold, elixir, updated_at FROM resources WHERE player_id = $1", playerID); err != nil {
-		http.Error(w, "Resources fetch error: "+err.Error(), http.StatusInternalServerError)
+	var res struct {
+		Gold   int64 `db:"gold"`
+		Elixir int64 `db:"elixir"`
+	}
+	if err := tc.DB.Get(&res, `SELECT gold, elixir FROM resources WHERE player_id = $1`, playerID); err != nil {
+		http.Error(w, "Resources not found", http.StatusInternalServerError)
 		return
 	}
 
-	// Dynamic fallback lookups to support multiple potential schema column layouts
-	var attacksWon, trophies int
-	err := tc.DB.QueryRow("SELECT attacks_won, trophies FROM players WHERE id = $1", playerID).Scan(&attacksWon, &trophies)
-	if err != nil {
-		// If column fails due to alternative name configurations, fall back to testing variations
-		err = tc.DB.QueryRow("SELECT wins_attack, trophy_count FROM players WHERE id = $1", playerID).Scan(&attacksWon, &trophies)
-		if err != nil {
-			http.Error(w, "Players column layout error: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
+	var stats struct {
+		WinsAttack  int `db:"wins_attack"`
+		WinsDefense int `db:"wins_defense"`
+		TrophyCount int `db:"trophy_count"`
+	}
+	if err := tc.DB.Get(&stats, `SELECT wins_attack, wins_defense, trophy_count FROM player_stats WHERE player_id = $1`, playerID); err != nil {
+		http.Error(w, "Stats not found", http.StatusInternalServerError)
+		return
 	}
 
 	var buildings []struct {
@@ -55,28 +58,19 @@ func (tc *TownController) GetLayout(w http.ResponseWriter, r *http.Request) {
 		X    int    `db:"x"`
 		Y    int    `db:"y"`
 	}
-
-	// Safe SQL query mapping names via dynamic fallbacks
-	query := `
-		SELECT bi.name AS name, tb.x AS x, tb.y AS y 
+	if err := tc.DB.Select(&buildings, `
+		SELECT bi.name, tb.x, tb.y
 		FROM town_buildings tb
 		JOIN building_info bi ON tb.building_info_id = bi.id
-		WHERE tb.town_id = $1`
-
-	if err := tc.DB.Select(&buildings, query, town.ID); err != nil {
-		// Fallback check if your join setup uses separate target name properties
-		fallbackQuery := `SELECT building_name AS name, x, y FROM town_buildings WHERE town_id = $1`
-		_ = tc.DB.Select(&buildings, fallbackQuery, town.ID)
+		WHERE tb.town_id = $1`, town.ID); err != nil {
+		http.Error(w, "Buildings not found", http.StatusInternalServerError)
+		return
 	}
 
 	grid := make([][]string, 10)
 	for i := range grid {
 		grid[i] = make([]string, 10)
-		for j := 0; j < 10; j++ {
-			grid[i][j] = "EMPTY"
-		}
 	}
-
 	for _, b := range buildings {
 		if b.X >= 0 && b.X < 10 && b.Y >= 0 && b.Y < 10 {
 			grid[b.Y][b.X] = b.Name
@@ -85,14 +79,19 @@ func (tc *TownController) GetLayout(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
-		"player_id":   playerID,
-		"town_id":     town.ID,
-		"town_level":  town.Level,
-		"gold":        res.Gold,
-		"elixir":      res.Elixir,
-		"attacks_won": attacksWon,
-		"trophies":    trophies,
-		"grid_matrix": grid,
+		"player_id":  playerID,
+		"town_id":    town.ID,
+		"town_level": town.Level,
+		"resources": map[string]int64{
+			"gold":   res.Gold,
+			"elixir": res.Elixir,
+		},
+		"stats": map[string]int{
+			"wins_attack":  stats.WinsAttack,
+			"wins_defense": stats.WinsDefense,
+			"trophies":     stats.TrophyCount,
+		},
+		"grid": grid,
 	})
 }
 
@@ -119,7 +118,7 @@ func (tc *TownController) PlaceStructure(w http.ResponseWriter, r *http.Request)
 	}
 
 	if req.X < 0 || req.X > 9 || req.Y < 0 || req.Y > 9 {
-		http.Error(w, "Coordinates outside 10x10 boundaries", http.StatusBadRequest)
+		http.Error(w, "Coordinates must be between 0 and 9", http.StatusBadRequest)
 		return
 	}
 
@@ -131,60 +130,36 @@ func (tc *TownController) PlaceStructure(w http.ResponseWriter, r *http.Request)
 	defer tx.Rollback()
 
 	var townID string
-	if err := tx.Get(&townID, "SELECT id FROM town WHERE player_id = $1", playerID); err != nil {
-		http.Error(w, "Town ID transaction error: "+err.Error(), http.StatusInternalServerError)
+	if err := tx.Get(&townID, `SELECT id FROM town WHERE player_id = $1`, playerID); err != nil {
+		http.Error(w, "Town not found", http.StatusNotFound)
 		return
 	}
 
 	var buildingInfoID string
-	err = tx.Get(&buildingInfoID, "SELECT id FROM building_info WHERE name = $1 LIMIT 1", req.BuildingName)
-	if err != nil {
+	if err := tx.Get(&buildingInfoID, `SELECT id FROM building_info WHERE name = $1 LIMIT 1`, req.BuildingName); err != nil {
 		if err == sql.ErrNoRows {
-			// CRITICAL SAFE MODE UPGRADE: If seeder hasn't run, auto-populate an on-the-fly placeholder record
-			buildingInfoID = "00000000-0000-0000-0000-000000000000"
-			_, _ = tx.Exec("INSERT INTO building_info (id, name, town_level, type, level_info) VALUES ($1, $2, 1, 'defense', '{}') ON CONFLICT DO NOTHING", buildingInfoID, req.BuildingName)
-		} else {
-			http.Error(w, "Building config lookup failure: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Building type not found", http.StatusNotFound)
 			return
 		}
-	}
-
-	insertQuery := `
-		INSERT INTO town_buildings (id, town_id, building_info_id, level, x, y) 
-		VALUES (gen_random_uuid(), $1, $2, 1, $3, $4) 
-		ON CONFLICT DO NOTHING`
-
-	if _, err = tx.Exec(insertQuery, townID, buildingInfoID, req.X, req.Y); err != nil {
-		// Fallback schema variant retry execution logic
-		fallbackInsert := `INSERT INTO town_buildings (id, town_id, building_name, level, x, y) VALUES (gen_random_uuid(), $1, $2, 1, $3, $4) ON CONFLICT DO NOTHING`
-		if _, errFallback := tx.Exec(fallbackInsert, townID, req.BuildingName, req.X, req.Y); errFallback != nil {
-			http.Error(w, "Insert statement statement execution error: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
-
-	var count int
-	if err := tx.Get(&count, "SELECT COUNT(*) FROM town_buildings WHERE town_id = $1", townID); err != nil {
-		http.Error(w, "Count evaluation transaction error: "+err.Error(), http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	buildingMilestones := []struct {
-		Condition bool
-		Type      string
-	}{
-		{count >= 1, "First Brick Placed"},
-		{count >= 5, "Village Architect"},
-		{count >= 10, "Fortress Builder"},
-		{count >= 20, "Empire Coordinator"},
+	if _, err := tx.Exec(`
+		INSERT INTO town_buildings (id, town_id, building_info_id, level, x, y)
+		VALUES (gen_random_uuid(), $1, $2, 1, $3, $4)`,
+		townID, buildingInfoID, req.X, req.Y); err != nil {
+		http.Error(w, "Could not place building", http.StatusInternalServerError)
+		return
 	}
 
-	for _, m := range buildingMilestones {
-		if m.Condition {
-			_, _ = tx.Exec(`
-				INSERT INTO achievements_log (id, player_id, type, created_at) 
-				VALUES (gen_random_uuid(), $1, $2, NOW()) 
-				ON CONFLICT DO NOTHING`, playerID, m.Type)
+	var count int
+	tx.Get(&count, `SELECT COUNT(*) FROM town_buildings WHERE town_id = $1`, townID)
+	if count >= 1 {
+		var existing int
+		tx.Get(&existing, `SELECT COUNT(*) FROM achievements_log WHERE player_id = $1 AND type = 'buildings_upgraded'`, playerID)
+		if existing == 0 {
+			tx.Exec(`INSERT INTO achievements_log (id, player_id, type, created_at) VALUES (gen_random_uuid(), $1, 'buildings_upgraded', NOW())`, playerID)
 		}
 	}
 
@@ -195,8 +170,7 @@ func (tc *TownController) PlaceStructure(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
-		"status":          "success",
-		"message":         req.BuildingName + " placed successfully!",
-		"total_buildings": count,
+		"status":  "success",
+		"message": fmt.Sprintf("%s placed at (%d, %d)", req.BuildingName, req.X, req.Y),
 	})
 }
