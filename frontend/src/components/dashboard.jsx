@@ -1,150 +1,86 @@
-import React, { useState } from 'react';
-import TownGrid from './towngrid';
-import Barracks from './barracks';
-import RaidCampaign from './raidcampaign';
+import React, { useState, useEffect } from 'react';
+import Town from './town';
+import TrainTroop from './train_troop';
+import Battle from './battle';
+import Leaderboard from './leaderboard';
+import BattleReplay from './battle_replay';
 
 function Dashboard({ token, onLogout }) {
-  // menu switch tab: 'town', 'barracks', or 'attack'
   const [currentTab, setCurrentTab] = useState('town');
+  const [walletGold, setWalletGold] = useState(0);
+  const [walletElixir, setWalletElixir] = useState(0);
 
-  function switchToTown() {
-    setCurrentTab('town');
+  function refreshBalances() {
+    fetch('http://localhost:8080/town/layout', {
+      method: 'GET',
+      headers: {
+        'Authorization': 'Bearer ' + token
+      }
+    })
+    .then(function(res) {
+      if (res.ok === true) {
+        return res.json();
+      }
+    })
+    .then(function(data) {
+      if (data) {
+        setWalletGold(data.gold || 0);
+        setWalletElixir(data.elixir || 0);
+      }
+    })
+    .catch(function(err) {
+      console.log('sync err');
+    });
   }
 
-  function switchToBarracks() {
-    setCurrentTab('barracks');
-  }
+  useEffect(function() {
+    refreshBalances();
+  }, [token]);
 
-  function switchToAttack() {
-    setCurrentTab('attack');
-  }
+  function goToTown() { setCurrentTab('town'); refreshBalances(); }
+  function goToTrain() { setCurrentTab('train'); refreshBalances(); }
+  function goToBattle() { setCurrentTab('battle'); refreshBalances(); }
+  function goToLeaderboard() { setCurrentTab('leaderboard'); }
+  function goToReplays() { setCurrentTab('replays'); }
 
   return (
-    <div className="game-layout" style={{ display: 'flex', height: '100vh', backgroundColor: '#1a1c2e' }}>
-      
-      {/* Sidebar controls */}
-      <div className="sidebar" style={{
-        width: '260px', 
-        backgroundColor: '#252740', 
-        padding: '32px 20px',
-        borderRight: '1px solid #3d3f6b', 
-        display: 'flex', 
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        boxShadow: '4px 0 24px rgba(0,0,0,0.3)',
-      }}>
-        <div>
-          <h3 style={{ color: '#e8e8f0', textAlign: 'center', margin: '0 0 4px 0', fontSize: '18px', letterSpacing: '0.5px' }}>
-            Vanguard
-          </h3>
-          
-          <button 
-            onClick={switchToTown}
-            style={{
-              display: 'block', 
-              width: '100%', 
-              padding: '12px', 
-              margin: '10px 0',
-              backgroundColor: currentTab === 'town' ? '#5b4fcf' : '#1a1c2e',
-              color: '#fff', 
-              border: currentTab === 'town' ? 'none' : '1px solid #3d3f6b', 
-              borderRadius: '4px', 
-              cursor: 'pointer', 
-              fontWeight: 'bold',
-              fontSize: '13px',
-              letterSpacing: '0.5px'
-            }}
-          >
-            TOWN LAYOUT
+    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#1a1c2e', color: '#edf2f4', fontFamily: 'sans-serif' }}>
+      {/*sidebar*/}
+      <div style={{ width: '260px', backgroundColor: '#252740', borderRight: '1px solid #3d3f6b', display: 'flex', flexDirection: 'column', padding: '20px' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#e8e8f0', textAlign: 'center', marginBottom: '24px', letterSpacing: '1px' }}>
+          VANGUARD
+        </h2>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+          <button onClick={goToTown} style={{ padding: '12px', border: 'none', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontWeight: 'bold', backgroundColor: currentTab === 'town' ? '#3d3f6b' : 'transparent', color: currentTab === 'town' ? 'white' : '#8888aa' }}>
+            TOWN GRID
           </button>
-
-          <button 
-            onClick={switchToBarracks}
-            style={{
-              display: 'block', 
-              width: '100%', 
-              padding: '12px', 
-              margin: '10px 0',
-              backgroundColor: currentTab === 'barracks' ? '#5b4fcf' : '#1a1c2e',
-              color: '#fff', 
-              border: currentTab === 'barracks' ? 'none' : '1px solid #3d3f6b', 
-              borderRadius: '4px', 
-              cursor: 'pointer', 
-              fontWeight: 'bold',
-              fontSize: '13px',
-              letterSpacing: '0.5px'
-            }}
-          >
-            TRAIN FORCES
+          <button onClick={goToTrain} style={{ padding: '12px', border: 'none', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontWeight: 'bold', backgroundColor: currentTab === 'train' ? '#3d3f6b' : 'transparent', color: currentTab === 'train' ? 'white' : '#8888aa' }}>
+            TRAIN TROOPS
           </button>
-
-          <button 
-            onClick={switchToAttack}
-            style={{
-              display: 'block', 
-              width: '100%', 
-              padding: '12px', 
-              margin: '10px 0',
-              backgroundColor: currentTab === 'attack' ? '#5b4fcf' : '#1a1c2e',
-              color: '#fff', 
-              border: currentTab === 'attack' ? 'none' : '1px solid #3d3f6b', 
-              borderRadius: '4px', 
-              cursor: 'pointer', 
-              fontWeight: 'bold',
-              fontSize: '13px',
-              letterSpacing: '0.5px'
-            }}
-          >
-            RAID CAMPAIGN
+          <button onClick={goToBattle} style={{ padding: '12px', border: 'none', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontWeight: 'bold', backgroundColor: currentTab === 'battle' ? '#3d3f6b' : 'transparent', color: currentTab === 'battle' ? 'white' : '#8888aa' }}>
+            BATTLE
+          </button>
+          <button onClick={goToLeaderboard} style={{ padding: '12px', border: 'none', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontWeight: 'bold', backgroundColor: currentTab === 'leaderboard' ? '#3d3f6b' : 'transparent', color: currentTab === 'leaderboard' ? 'white' : '#8888aa' }}>
+            LEADERBOARD
+          </button>
+          <button onClick={goToReplays} style={{ padding: '12px', border: 'none', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontWeight: 'bold', backgroundColor: currentTab === 'replays' ? '#3d3f6b' : 'transparent', color: currentTab === 'replays' ? 'white' : '#8888aa' }}>
+            BATTLE REPLAYS
           </button>
         </div>
 
-        <button 
-          onClick={onLogout} 
-          style={{
-            width: '100%', 
-            padding: '12px', 
-            backgroundColor: '#3d1a1a',
-            color: '#ff8888', 
-            border: '1px solid #7a2020', 
-            borderRadius: '4px', 
-            cursor: 'pointer', 
-            fontWeight: 'bold',
-            fontSize: '13px',
-            letterSpacing: '0.5px'
-          }}
-        >
-          DISCONNECT SESSION
+        <button onClick={onLogout} style={{ padding: '12px', border: '1px solid #ff4d6d', backgroundColor: 'transparent', color: '#ff4d6d', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+          EXIT
         </button>
       </div>
 
-      {/* Main viewport displays */}
-      <div className="main-content" style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
-        
-        {currentTab === 'town' ? (
-          <div>
-            <h2 style={{ color: '#e8e8f0', margin: '0 0 4px 0', fontSize: '22px' }}>Town Metrics & Grid Sector</h2>
-            <p style={{ color: '#8888aa', fontSize: '13px', marginBottom: '28px' }}>Inspect and organize your active village structures.</p>
-            <TownGrid userToken={token} />
-          </div>
-        ) : null}
-
-        {currentTab === 'barracks' ? (
-          <div>
-            <h2 style={{ color: '#e8e8f0', margin: '0 0 4px 0', fontSize: '22px', textAlign: 'center' }}>Army Training Grounds</h2>
-            <p style={{ color: '#8888aa', fontSize: '13px', marginBottom: '28px', textAlign: 'center' }}>Manage and recruit defensive forces.</p>
-            <Barracks userToken={token} />
-          </div>
-        ) : null}
-
-        {currentTab === 'attack' ? (
-          <div>
-            <h2 style={{ color: '#e8e8f0', margin: '0 0 4px 0', fontSize: '22px', textAlign: 'center' }}>Combat Simulation Center</h2>
-            <p style={{ color: '#8888aa', fontSize: '13px', marginBottom: '28px', textAlign: 'center' }}>Deploy troops to raid foreign targets.</p>
-            <RaidCampaign userToken={token} />
-          </div>
-        ) : null}
-
+      {/*main pane*/}
+      <div style={{ flex: 1, overflowY: 'auto', backgroundColor: '#1a1c2e' }}>
+        {currentTab === 'town' ? <Town token={token} gold={walletGold} elixir={walletElixir} onPlacementSuccess={refreshBalances} /> : null}
+        {currentTab === 'train' ? <TrainTroop token={token} elixir={walletElixir} onTrainingComplete={refreshBalances} /> : null}
+        {currentTab === 'battle' ? <Battle token={token} onRaidComplete={refreshBalances} /> : null}
+        {currentTab === 'leaderboard' ? <Leaderboard token={token} /> : null}
+        {currentTab === 'replays' ? <BattleReplay token={token} /> : null}
       </div>
     </div>
   );
