@@ -31,8 +31,8 @@ func CreateNewPlayer(db *sqlx.DB, username, passwordHash string) (string, error)
 	pID := uuid.New().String()
 
 	_, err = tx.Exec(`
-		INSERT INTO players (id, username, password, created_at)
-		VALUES ($1, $2, $3, NOW())`,
+		INSERT INTO players (id, username, password, created_at, updated_at)
+		VALUES ($1, $2, $3, NOW(), NOW())`,
 		pID, username, passwordHash)
 	if err != nil {
 		return "", err
@@ -52,24 +52,13 @@ func CreateNewPlayer(db *sqlx.DB, username, passwordHash string) (string, error)
 		return "", err
 	}
 
+	resID := uuid.New().String()
 	_, err = tx.Exec(`
 		INSERT INTO resources (id, player_id, gold, elixir, updated_at)
 		VALUES ($1, $2, 10000, 10000, NOW())`,
-		uuid.New().String(), pID)
+		resID, pID)
 	if err != nil {
 		return "", err
-	}
-
-	var thInfoID string
-	err = tx.Get(&thInfoID, "SELECT id FROM building_info WHERE name = $1 AND town_level = 1 LIMIT 1", "Town Hall")
-	if err == nil {
-		_, err = tx.Exec(`
-			INSERT INTO town_buildings (id, town_id, building_info_id, level, x, y)
-			VALUES ($1, $2, $3, 1, 4, 4)`,
-			uuid.New().String(), townID, thInfoID)
-		if err != nil {
-			return "", err
-		}
 	}
 
 	return pID, tx.Commit()
