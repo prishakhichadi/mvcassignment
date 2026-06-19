@@ -135,8 +135,11 @@ func (tc *TownController) PlaceStructure(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var buildingInfoID string
-	if err := tx.Get(&buildingInfoID, `SELECT id FROM building_info WHERE name = $1 LIMIT 1`, req.BuildingName); err != nil {
+	var building struct {
+		ID        string `db:"id"`
+		LevelInfo string `db:"level_info"`
+	}
+	if err := tx.Get(&building, `SELECT id, level_info FROM building_info WHERE name = $1 LIMIT 1`, req.BuildingName); err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Building type not found", http.StatusNotFound)
 			return
@@ -145,10 +148,39 @@ func (tc *TownController) PlaceStructure(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	var levelStats map[string]map[string]any
+	if err := json.Unmarshal([]byte(building.LevelInfo), &levelStats); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	goldCost := int64(0)
+	if lvl1, ok := levelStats["1"]; ok {
+		if v, ok := lvl1["cost_gold"]; ok {
+			if f, ok := v.(float64); ok {
+				goldCost = int64(f)
+			}
+		}
+	}
+
+	var currentGold int64
+	if err := tx.Get(&currentGold, `SELECT gold FROM resources WHERE player_id = $1`, playerID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if currentGold < goldCost {
+		http.Error(w, fmt.Sprintf("Not enough gold: need %d, have %d", goldCost, currentGold), http.StatusPaymentRequired)
+		return
+	}
+	if _, err := tx.Exec(`UPDATE resources SET gold = gold - $1, updated_at = NOW() WHERE player_id = $2`, goldCost, playerID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	if _, err := tx.Exec(`
 		INSERT INTO town_buildings (id, town_id, building_info_id, level, x, y)
 		VALUES (gen_random_uuid(), $1, $2, 1, $3, $4)`,
-		townID, buildingInfoID, req.X, req.Y); err != nil {
+		townID, building.ID, req.X, req.Y); err != nil {
 		http.Error(w, "Could not place building", http.StatusInternalServerError)
 		return
 	}
@@ -170,7 +202,8 @@ func (tc *TownController) PlaceStructure(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
-		"status":  "success",
-		"message": fmt.Sprintf("%s placed at (%d, %d)", req.BuildingName, req.X, req.Y),
+		"status":     "success",
+		"message":    fmt.Sprintf("%s placed at (%d, %d)", req.BuildingName, req.X, req.Y),
+		"gold_spent": goldCost,
 	})
 }
