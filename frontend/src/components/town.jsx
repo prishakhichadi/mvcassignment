@@ -44,14 +44,6 @@ function Town({ token, gold, elixir, onPlacementSuccess }) {
     setHint('');
     setHintIsError(false);
 
-    // NOTE: buildingName here is always one of BUILDING_DEFS[].key (from
-    // theme.js), which is the single source of truth for the exact string
-    // the backend expects. Previously this sent 'ArcherTower' / 'AirDefense'
-    // (no space) which the API rejected as "building type not found" while
-    // 'Cannon' worked. If placement still fails after this fix, the
-    // backend's expected key differs from what's in BUILDING_DEFS — check
-    // the API's building-type list and update theme.js accordingly, not
-    // here, so every consumer of the name stays in sync.
     fetch('http://localhost:8080/town/place', {
       method: 'POST',
       headers: {
