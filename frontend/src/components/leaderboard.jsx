@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { colors } from './theme';
 
 function Leaderboard({ token }) {
   const [rankings, setRankings] = useState([]);
@@ -10,14 +11,11 @@ function Leaderboard({ token }) {
     setError('');
 
     fetch('http://localhost:8080/leaderboard', {
-      method: 'GET',
-      headers: {
-        'Authorization': 'Bearer ' + token
-      }
+      method: 'GET'
     })
     .then(function(res) {
       if (res.ok === false) {
-        throw new Error('Could not fetch competitive standings');
+        throw new Error('Could not fetch leaderboard');
       }
       return res.json();
     })
@@ -36,55 +34,56 @@ function Leaderboard({ token }) {
   }, [token]);
 
   return (
-    <div style={{ padding: '24px', color: '#e8e8f0' }}>
-      <h2 style={{ fontSize: '20px', color: '#ffb703', marginBottom: '16px' }}>LEADERBOARD</h2>
-      <p style={{ color: '#8888aa', fontSize: '14px', marginBottom: '24px' }}>
-        Commanders ranked by trophy count.
+    <div style={{ padding: '24px', color: colors.textMain }}>
+      <h2 style={{ fontSize: '20px', margin: '0 0 4px 0' }}>Leaderboard</h2>
+      <p style={{ color: colors.textDim, fontSize: '13px', marginBottom: '20px' }}>
+        Top commanders ranked by trophies.
       </p>
 
       {loading === true ? (
-        <p style={{ color: '#00b4d8' }}>Loading leaderboard arrays...</p>
+        <p style={{ color: colors.textDim, fontSize: '13px' }}>Loading...</p>
       ) : error !== '' ? (
-        <p style={{ color: '#ff4d6d' }}>Error: {error}</p>
+        <div style={{ backgroundColor: '#3d1a1a', border: '1px solid #7a2020', color: colors.danger, padding: '12px', borderRadius: '8px', fontSize: '13px' }}>
+          {error}
+        </div>
       ) : (
-        <table style={{ 
-          width: '100%', 
-          borderCollapse: 'collapse', 
-          backgroundColor: '#252740', 
-          border: '1px solid #3d3f6b',
-          borderRadius: '8px',
-          overflow: 'hidden'
-        }}>
-          <thead>
-            <tr style={{ backgroundColor: '#1a1c2e', borderBottom: '2px solid #3d3f6b' }}>
-              <th style={{ padding: '12px', textAlign: 'center', color: '#8888aa' }}>RANK</th>
-              <th style={{ padding: '12px', textAlign: 'center', color: '#8888aa' }}>COMMANDER</th>
-              <th style={{ padding: '12px', textAlign: 'center', color: '#8888aa' }}>TROPHIES</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rankings.map(function(player, idx) {
-              return (
-                <tr key={player.id || idx} style={{ borderBottom: '1px solid #3d3f6b' }}>
-                  <td style={{ padding: '12px', fontWeight: 'bold', color: idx === 0 ? 'white' : '#edf2f4' }}>
-                    #{idx + 1}
-                  </td>
-                  <td style={{ padding: '12px' }}>{player.username}</td>
-                  <td style={{ padding: '12px', textAlign: 'center', color: '#ffb703', fontWeight: 'bold' }}>
-                    {player.trophy_count || 0}
+        <div style={{ backgroundColor: colors.bgCard, border: '1px solid ' + colors.border, borderRadius: '14px', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ backgroundColor: colors.bgDark }}>
+                <th style={{ padding: '12px 16px', textAlign: 'center', color: colors.textDim, fontSize: '12px' }}>Rank</th>
+                <th style={{ padding: '12px 16px', textAlign: 'center', color: colors.textDim, fontSize: '12px' }}>Player</th>
+                <th style={{ padding: '12px 16px', textAlign: 'right', color: colors.textDim, fontSize: '12px' }}>Trophies</th>
+                <th style={{ padding: '12px 16px', textAlign: 'right', color: colors.textDim, fontSize: '12px' }}>Wins</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rankings.map(function(player, idx) {
+                return (
+                  <tr key={player.player_id || idx} style={{ borderTop: '1px solid ' + colors.border }}>
+                    <td style={{ padding: '12px 16px', fontWeight: 'bold', color: idx === 0 ? colors.gold : colors.textMain }}>
+                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '#' + (idx + 1)}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>{player.username}</td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right', color: colors.gold, fontWeight: 'bold' }}>
+                      🏆 {player.trophy_count || 0}
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right', color: colors.textDim, fontSize: '13px' }}>
+                      {player.wins_attack || 0}
+                    </td>
+                  </tr>
+                );
+              })}
+              {rankings.length === 0 ? (
+                <tr>
+                  <td colSpan="4" style={{ padding: '24px', textAlign: 'center', color: colors.textDim }}>
+                    No players yet.
                   </td>
                 </tr>
-              );
-            })}
-            {rankings.length === 0 ? (
-              <tr>
-                <td colSpan="3" style={{ padding: '20px', textAlign: 'center', color: '#8888aa' }}>
-                  No player records stand in the database logs yet.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
