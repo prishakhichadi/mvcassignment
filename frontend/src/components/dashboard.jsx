@@ -1,87 +1,175 @@
 import React, { useState, useEffect } from 'react';
+import { colors } from './theme';
 import Town from './town';
 import TrainTroop from './train_troop';
 import Battle from './battle';
-import Leaderboard from './leaderboard';
-import BattleReplay from './battle_replay';
+import BattleReplay from './battle_replay'; 
+import Leaderboard from './leaderboard';  
 
 function Dashboard({ token, onLogout }) {
   const [currentTab, setCurrentTab] = useState('town');
-  const [walletGold, setWalletGold] = useState(0);
-  const [walletElixir, setWalletElixir] = useState(0);
+  const [gold, setGold] = useState(0);
+  const [elixir, setElixir] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  function refreshBalances() {
-    fetch('http://localhost:8080/town/layout', {
+
+  function fetchProfileBalances() {
+    fetch('http://localhost:8080/player/profile', {
       method: 'GET',
-      headers: {
-        'Authorization': 'Bearer ' + token
-      }
+      headers: { 'Authorization': 'Bearer ' + token }
     })
     .then(function(res) {
-      if (res.ok === true) {
-        return res.json();
+      if (res.ok === false) {
+        throw new Error('Could not establish terminal contact with database vault rows.');
       }
+      return res.json();
     })
     .then(function(data) {
-      if (data) {
-        setWalletGold(data.gold || 0);
-        setWalletElixir(data.elixir || 0);
+      let goldVal = 0;
+      let elixirVal = 0;
+
+
+      if (data && data.resources) {
+        goldVal = data.resources.gold;
+        elixirVal = data.resources.elixir;
+      } else if (data && data.player && data.player.resources) {
+        goldVal = data.player.resources.gold;
+        elixirVal = data.player.resources.elixir;
+      } else {
+        const flatSource = data.player || data.profile || data;
+        goldVal = flatSource.gold != null ? flatSource.gold : 0;
+        elixirVal = flatSource.elixir != null ? flatSource.elixir : 0;
       }
+
+      setGold(Number(goldVal) || 0);
+      setElixir(Number(elixirVal) || 0);
+      setLoading(false);
     })
     .catch(function(err) {
-      console.log('sync err');
+      setError(err.message);
+      setLoading(false);
     });
   }
 
   useEffect(function() {
-    refreshBalances();
+    fetchProfileBalances();
   }, [token]);
 
-  function goToTown() { setCurrentTab('town'); refreshBalances(); }
-  function goToTrain() { setCurrentTab('train'); refreshBalances(); }
-  function goToBattle() { setCurrentTab('battle'); refreshBalances(); }
-  function goToLeaderboard() { setCurrentTab('leaderboard'); }
-  function goToReplays() { setCurrentTab('replays'); }
+
+  function handleResourceMutation() {
+    fetchProfileBalances();
+  }
 
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#1a1c2e', color: '#edf2f4', fontFamily: 'sans-serif' }}>
-      {/*sidebar*/}
-      <div style={{ width: '260px', backgroundColor: '#252740', borderRight: '1px solid #3d3f6b', display: 'flex', flexDirection: 'column', padding: '20px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#e8e8f0', textAlign: 'center', marginBottom: '24px', letterSpacing: '1px' }}>
-          VANGUARD
-        </h2>
-        
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: colors.bgDark, color: colors.textMain, fontFamily: 'monospace' }}>
+      
+      {}
+      <div style={{ width: '240px', backgroundColor: colors.bgCard, borderRight: '1px solid ' + colors.border, padding: '20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: '18px', color: '#fff', letterSpacing: '2px', textTransform: 'uppercase' }}>VANGUARD</h1>
+        </div>
+
+        {}
+        <div style={{ backgroundColor: colors.bgDark, padding: '12px', border: '1px solid ' + colors.border, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div>
+            <div style={{ fontSize: '10px', color: colors.gold, fontWeight: 'bold', letterSpacing: '0.5px' }}>GOLD</div>
+            <div style={{ fontSize: '16px', fontWeight: 'bold', color: colors.gold }}>{gold.toLocaleString()}</div>
+          </div>
+          <div style={{ borderTop: '1px dashed ' + colors.border, paddingTop: '6px' }}>
+            <div style={{ fontSize: '10px', color: colors.elixir, fontWeight: 'bold', letterSpacing: '0.5px' }}>ELIXIR</div>
+            <div style={{ fontSize: '16px', fontWeight: 'bold', color: colors.elixir }}>{elixir.toLocaleString()}</div>
+          </div>
+        </div>
+
+        {}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-          <button onClick={goToTown} style={{ padding: '12px', border: 'none', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontWeight: 'bold', backgroundColor: currentTab === 'town' ? '#3d3f6b' : 'transparent', color: currentTab === 'town' ? 'white' : '#8888aa' }}>
-            TOWN GRID
+          <button
+            onClick={function() { setCurrentTab('town'); }}
+            style={{
+              padding: '12px', textAlign: 'left', cursor: 'pointer', borderRadius: '10px', border: '1px solid ' + (currentTab === 'town' ? colors.purpleLight : colors.border),
+              backgroundColor: currentTab === 'town' ? colors.bgCardRaised : 'transparent', color: '#fff', fontWeight: 'bold', fontFamily: 'monospace'
+            }}
+          >
+            Town Grid
           </button>
-          <button onClick={goToTrain} style={{ padding: '12px', border: 'none', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontWeight: 'bold', backgroundColor: currentTab === 'train' ? '#3d3f6b' : 'transparent', color: currentTab === 'train' ? 'white' : '#8888aa' }}>
-            TRAIN TROOPS
+          <button
+            onClick={function() { setCurrentTab('barracks'); }}
+            style={{
+              padding: '12px', textAlign: 'left', cursor: 'pointer', borderRadius: '10px', border: '1px solid ' + (currentTab === 'barracks' ? colors.purpleLight : colors.border),
+              backgroundColor: currentTab === 'barracks' ? colors.bgCardRaised : 'transparent', color: '#fff', fontWeight: 'bold', fontFamily: 'monospace'
+            }}
+          >
+            Train Troops
           </button>
-          <button onClick={goToBattle} style={{ padding: '12px', border: 'none', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontWeight: 'bold', backgroundColor: currentTab === 'battle' ? '#3d3f6b' : 'transparent', color: currentTab === 'battle' ? 'white' : '#8888aa' }}>
-            BATTLE
+          <button
+            onClick={function() { setCurrentTab('battle'); }}
+            style={{
+              padding: '12px', textAlign: 'left', cursor: 'pointer', borderRadius: '10px', border: '1px solid ' + (currentTab === 'battle' ? colors.danger : colors.border),
+              backgroundColor: currentTab === 'battle' ? colors.dangerDim : 'transparent', color: '#fff', fontWeight: 'bold', fontFamily: 'monospace'
+            }}
+          >
+            Battles
           </button>
-          <button onClick={goToLeaderboard} style={{ padding: '12px', border: 'none', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontWeight: 'bold', backgroundColor: currentTab === 'leaderboard' ? '#3d3f6b' : 'transparent', color: currentTab === 'leaderboard' ? 'white' : '#8888aa' }}>
-            LEADERBOARD
+          <button
+            onClick={function() { setCurrentTab('replays'); }}
+            style={{
+              padding: '12px', textAlign: 'left', cursor: 'pointer', borderRadius: '10px', border: '1px solid ' + (currentTab === 'replays' ? colors.purpleLight : colors.border),
+              backgroundColor: currentTab === 'replays' ? colors.bgCardRaised : 'transparent', color: '#fff', fontWeight: 'bold', fontFamily: 'monospace'
+            }}
+          >
+            Battle Replay Logs
           </button>
-          <button onClick={goToReplays} style={{ padding: '12px', border: 'none', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontWeight: 'bold', backgroundColor: currentTab === 'replays' ? '#3d3f6b' : 'transparent', color: currentTab === 'replays' ? 'white' : '#8888aa' }}>
-            BATTLE REPLAYS
+          <button
+            onClick={function() { setCurrentTab('leaderboard'); }}
+            style={{
+              padding: '12px', textAlign: 'left', cursor: 'pointer', borderRadius: '10px', border: '1px solid ' + (currentTab === 'leaderboard' ? colors.gold : colors.border),
+              backgroundColor: currentTab === 'leaderboard' ? colors.goldDim : 'transparent', color: '#fff', fontWeight: 'bold', fontFamily: 'monospace'
+            }}
+          >
+            Leaderboard
           </button>
         </div>
 
-        <button onClick={onLogout} style={{ padding: '12px', border: '1px solid #ff4d6d', backgroundColor: 'transparent', color: '#ff4d6d', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-          EXIT
+        <button
+          onClick={onLogout}
+          style={{ padding: '10px', backgroundColor: 'transparent', border: '1px solid ' + colors.danger, color: colors.danger, cursor: 'pointer', fontWeight: 'bold', fontFamily: 'monospace' }}
+        >
+          Exit
         </button>
       </div>
 
-      {/*main pane*/}
-      <div style={{ flex: 1, overflowY: 'auto', backgroundColor: '#1a1c2e' }}>
-        {currentTab === 'town' ? <Town token={token} gold={walletGold} elixir={walletElixir} onPlacementSuccess={refreshBalances} /> : null}
-        {currentTab === 'train' ? <TrainTroop token={token} elixir={walletElixir} onTrainingComplete={refreshBalances} /> : null}
-        {currentTab === 'battle' ? <Battle token={token} onRaidComplete={refreshBalances} /> : null}
-        {currentTab === 'leaderboard' ? <Leaderboard token={token} /> : null}
-        {currentTab === 'replays' ? <BattleReplay token={token} /> : null}
+      {}
+      <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+        {error !== '' && (
+          <div style={{ backgroundColor: colors.dangerDim, color: colors.danger, padding: '12px', marginBottom: '16px', border: '1px solid ' + colors.danger }}>
+            ERROR: {error}
+          </div>
+        )}
+
+        {loading === true ? (
+          <div style={{ fontSize: '13px', color: colors.gold, fontWeight: 'bold' }}>SYNCING...</div>
+        ) : (
+          <div>
+            {currentTab === 'town' && (
+              <Town token={token} gold={gold} elixir={elixir} onPlacementSuccess={handleResourceMutation} />
+            )}
+            {currentTab === 'barracks' && (
+              <TrainTroop token={token} elixir={elixir} onTrainingComplete={handleResourceMutation} />
+            )}
+            {currentTab === 'battle' && (
+              <Battle token={token} onRaidComplete={handleResourceMutation} />
+            )}
+            {currentTab === 'replays' && (
+              <BattleReplay token={token} />
+            )}
+            {currentTab === 'leaderboard' && (
+              <Leaderboard token={token} />
+            )}
+          </div>
+        )}
       </div>
+
     </div>
   );
 }
