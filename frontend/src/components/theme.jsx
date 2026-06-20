@@ -213,6 +213,7 @@ export const TROOP_DEFS = [
 ];
 
 
+
 export function level1Cost(def) {
   return def.levels[0].cost;
 }
