@@ -46,7 +46,6 @@ func (tc *TroopController) TrainUnitsInstant(w http.ResponseWriter, r *http.Requ
 	}
 	defer tx.Rollback()
 
-	//get troop specs
 	var troop struct {
 		ID        string `db:"id"`
 		LevelInfo string `db:"level_info"`
@@ -56,7 +55,6 @@ func (tc *TroopController) TrainUnitsInstant(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	//parse stats from json info metadata
 	var stats map[string]map[string]any
 	if err := json.Unmarshal([]byte(troop.LevelInfo), &stats); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -71,7 +69,6 @@ func (tc *TroopController) TrainUnitsInstant(w http.ResponseWriter, r *http.Requ
 	unitCost := int64(costVal.(float64))
 	totalCost := unitCost * int64(req.Quantity)
 
-	//check elixir balance
 	var balance int64
 	if err := tx.Get(&balance, "SELECT elixir FROM resources WHERE player_id = $1", userID); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -83,13 +80,11 @@ func (tc *TroopController) TrainUnitsInstant(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	//deduct elixir
 	if _, err = tx.Exec("UPDATE resources SET elixir = elixir - $1, updated_at = NOW() WHERE player_id = $2", totalCost, userID); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	//update
 	saveQuery := `
         INSERT INTO player_troop (id, player_id, troop_info_id, quantity, level)
         VALUES (gen_random_uuid(), $1, $2, $3, 1)
@@ -113,5 +108,47 @@ func (tc *TroopController) TrainUnitsInstant(w http.ResponseWriter, r *http.Requ
 		"troop_name":   req.TroopName,
 		"quantity":     req.Quantity,
 		"elixir_spent": totalCost,
+	})
+}
+
+func (tc *TroopController) ListMyTroops(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, ok := r.Context().Value(PlayerContextKey).(string)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	var rows []struct {
+		Name     string `db:"name"`
+		Quantity int    `db:"quantity"`
+		Level    int    `db:"level"`
+	}
+	if err := tc.DB.Select(&rows, `
+		SELECT ti.name, pt.quantity, pt.level
+		FROM player_troop pt
+		JOIN troop_info ti ON ti.id = pt.troop_info_id
+		WHERE pt.player_id = $1 AND pt.quantity > 0
+		ORDER BY ti.name`, userID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	troops := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		troops = append(troops, map[string]any{
+			"name":     row.Name,
+			"quantity": row.Quantity,
+			"level":    row.Level,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"troops": troops,
 	})
 }
