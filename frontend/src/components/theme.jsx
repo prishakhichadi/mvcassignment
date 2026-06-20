@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 
 export const colors = {
@@ -27,8 +25,6 @@ export const colors = {
   hpFill: '#5cd97a',
   hpFillLow: '#e8615c',
 };
-
-
 
 export function IconGold({ size = 16, color = colors.gold }) {
   return (
@@ -132,18 +128,94 @@ export function IconSwords({ size = 16, color = colors.textMain }) {
 
 
 export const BUILDING_DEFS = [
-  { key: 'Cannon', label: 'Cannon', icon: 'cannon', cost: 250, hp: 420 },
-  { key: 'Archer Tower', label: 'Archer Tower', icon: 'archerTower', cost: 1000, hp: 380 },
-  { key: 'Air Defense', label: 'Air Defense', icon: 'airDefense', cost: 1500, hp: 500 },
+  {
+    key: 'Cannon', label: 'Cannon', icon: 'cannon', townLevelRequired: 1,
+    levels: [
+      { level: 1, hp: 400, dps: 9, cost: 250 },
+      { level: 2, hp: 450, dps: 11, cost: 500 },
+      { level: 3, hp: 500, dps: 15, cost: 1000 },
+      { level: 4, hp: 570, dps: 19, cost: 2000 },
+    ],
+  },
+  {
+    key: 'Archer Tower', label: 'Archer Tower', icon: 'archerTower', townLevelRequired: 2,
+    levels: [
+      { level: 1, hp: 380, dps: 11, cost: 1000 },
+      { level: 2, hp: 420, dps: 14, cost: 2000 },
+      { level: 3, hp: 460, dps: 17, cost: 4000 },
+      { level: 4, hp: 510, dps: 20, cost: 8000 },
+    ],
+  },
+  {
+    key: 'Air Defense', label: 'Air Defense', icon: 'airDefense', townLevelRequired: 3,
+    levels: [
+      { level: 1, hp: 800, dps: 20, cost: 4000 },
+      { level: 2, hp: 900, dps: 30, cost: 8000 },
+      { level: 3, hp: 1000, dps: 40, cost: 16000 },
+      { level: 4, hp: 1100, dps: 50, cost: 32000 },
+    ],
+  },
+];
+
+export const TOWN_HALL_LEVELS = [
+  { level: 1, hp: 1500, capacityGold: 1000 },
+  { level: 2, hp: 1600, capacityGold: 2500 },
+  { level: 3, hp: 1850, capacityGold: 5000 },
+  { level: 4, hp: 2100, capacityGold: 10000 },
 ];
 
 export const TROOP_DEFS = [
-  { key: 'Barbarian', label: 'Barbarian', icon: 'barbarian', cost: 25 },
-  { key: 'Archer', label: 'Archer', icon: 'archer', cost: 50 },
-  { key: 'Goblin', label: 'Goblin', icon: 'goblin', cost: 40 },
-  { key: 'Giant', label: 'Giant', icon: 'giant', cost: 250 },
-  { key: 'Wall Breaker', label: 'Wall Breaker', icon: 'wallBreaker', cost: 350 },
+  {
+    key: 'Barbarian', label: 'Barbarian', icon: 'barbarian', space: 1,
+    levels: [
+      { level: 1, hp: 45, dps: 8, cost: 25 },
+      { level: 2, hp: 54, dps: 11, cost: 40 },
+      { level: 3, hp: 65, dps: 14, cost: 60 },
+      { level: 4, hp: 78, dps: 18, cost: 100 },
+    ],
+  },
+  {
+    key: 'Archer', label: 'Archer', icon: 'archer', space: 1,
+    levels: [
+      { level: 1, hp: 20, dps: 7, cost: 50 },
+      { level: 2, hp: 23, dps: 9, cost: 80 },
+      { level: 3, hp: 28, dps: 12, cost: 120 },
+      { level: 4, hp: 33, dps: 16, cost: 200 },
+    ],
+  },
+  {
+    key: 'Goblin', label: 'Goblin', icon: 'goblin', space: 1,
+    levels: [
+      { level: 1, hp: 25, dps: 11, cost: 25 },
+      { level: 2, hp: 30, dps: 14, cost: 40 },
+      { level: 3, hp: 36, dps: 19, cost: 70 },
+      { level: 4, hp: 43, dps: 24, cost: 120 },
+    ],
+  },
+  {
+    key: 'Giant', label: 'Giant', icon: 'giant', space: 5,
+    levels: [
+      { level: 1, hp: 300, dps: 11, cost: 250 },
+      { level: 2, hp: 360, dps: 14, cost: 350 },
+      { level: 3, hp: 430, dps: 19, cost: 500 },
+      { level: 4, hp: 520, dps: 24, cost: 750 },
+    ],
+  },
+  {
+    key: 'Wall Breaker', label: 'Wall Breaker', icon: 'wallBreaker', space: 2,
+    levels: [
+      { level: 1, hp: 20, dps: 12, cost: 1000 },
+      { level: 2, hp: 24, dps: 16, cost: 1500 },
+      { level: 3, hp: 29, dps: 24, cost: 2000 },
+      { level: 4, hp: 35, dps: 32, cost: 2500 },
+    ],
+  },
 ];
+
+
+export function level1Cost(def) {
+  return def.levels[0].cost;
+}
 
 function BuildingGlyph({ kind, size = 20, color = '#fff' }) {
   const s = size;
@@ -261,10 +333,9 @@ function TroopGlyph({ kind, size = 18, color = '#fff' }) {
   );
 }
 
-
 export function BuildingIcon({ name, size, color }) {
   const def = BUILDING_DEFS.find(function (d) { return d.key === name; });
-  const kind = name === 'TownHall' ? 'townHall'
+  const kind = name === 'TownHall' || name === 'Town Hall' ? 'townHall'
     : name === 'Barracks' ? 'barracks'
     : def ? def.icon : 'generic';
   return <BuildingGlyph kind={kind} size={size} color={color} />;
@@ -274,8 +345,6 @@ export function TroopIcon({ name, size, color }) {
   const def = TROOP_DEFS.find(function (d) { return d.key === name; });
   return <TroopGlyph kind={def ? def.icon : 'generic'} size={size} color={color} />;
 }
-
-
 
 export const buildingNames = BUILDING_DEFS.map(function (d) { return d.key; });
 export const troopNames = TROOP_DEFS.map(function (d) { return d.key; });
