@@ -25,7 +25,7 @@ func main() {
 	http.HandleFunc("/town/hall", controllers.CORSMiddleware(controllers.ContentGuard(town.GetTownHallInfo)))         // NEW
 	http.HandleFunc("/town/hall/upgrade", controllers.CORSMiddleware(controllers.ContentGuard(town.UpgradeTownHall))) // NEW
 	http.HandleFunc("/troop/train", controllers.CORSMiddleware(controllers.ContentGuard(troop.TrainUnitsInstant)))
-	//http.HandleFunc("/troop/list", controllers.CORSMiddleware(controllers.ContentGuard(troop.ListMyTroops)))
+	http.HandleFunc("/troop/list", controllers.CORSMiddleware(controllers.ContentGuard(troop.ListMyTroops)))
 	//http.HandleFunc("/troop/scout", controllers.CORSMiddleware(controllers.ContentGuard(controllers.ScoutTarget(dbConn)))) // NEW // NEW
 	http.HandleFunc("/troop/attack", controllers.CORSMiddleware(controllers.ContentGuard(controllers.ExecuteRaid(dbConn))))
 	http.HandleFunc("/leaderboard", controllers.CORSMiddleware(controllers.GetLeaderboard(dbConn)))
