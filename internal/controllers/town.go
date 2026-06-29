@@ -163,17 +163,30 @@ func (tc *TownController) PlaceStructure(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	var currentGold int64
-	if err := tx.Get(&currentGold, `SELECT gold FROM resources WHERE player_id = $1`, playerID); err != nil {
+	result, err := tx.Exec(`
+	UPDATE resources
+	SET gold = gold - $1,
+		updated_at = NOW()
+	WHERE player_id = $2
+	AND gold >= $1
+	`,
+		goldCost,
+		playerID,
+	)
+
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	if currentGold < goldCost {
-		http.Error(w, fmt.Sprintf("Not enough gold: need %d, have %d", goldCost, currentGold), http.StatusPaymentRequired)
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	if _, err := tx.Exec(`UPDATE resources SET gold = gold - $1, updated_at = NOW() WHERE player_id = $2`, goldCost, playerID); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+
+	if rows == 0 {
+		http.Error(w, "Not enough gold", http.StatusPaymentRequired)
 		return
 	}
 

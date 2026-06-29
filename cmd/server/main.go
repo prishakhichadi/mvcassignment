@@ -5,9 +5,15 @@ import (
 	"mvcassignment/config"
 	"mvcassignment/internal/controllers"
 	"net/http"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Println(".env not found")
+	}
 	dbConn := config.ConnectDB()
 
 	defer dbConn.Close()

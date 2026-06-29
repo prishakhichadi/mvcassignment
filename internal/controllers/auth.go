@@ -8,12 +8,14 @@ import (
 
 	"mvcassignment/internal/models"
 
+	"os"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var secretKey = []byte("vanguard_secret_key_2026")
+var secretKey = []byte(os.Getenv("JWT_SECRET"))
 
 type AuthHandler struct {
 	DB *sqlx.DB

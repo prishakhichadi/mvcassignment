@@ -121,3 +121,11 @@ ALTER TABLE "battles" ADD CONSTRAINT "battles_attacker_id_foreign" FOREIGN KEY("
 ALTER TABLE "battles" ADD CONSTRAINT "battles_defender_id_foreign" FOREIGN KEY("defender_id") REFERENCES "players"("id");
 ALTER TABLE "troop_record" ADD CONSTRAINT "troop_record_battle_id_foreign" FOREIGN KEY("battle_id") REFERENCES "battles"("id");
 ALTER TABLE "troop_record" ADD CONSTRAINT "troop_record_troop_info_id_foreign" FOREIGN KEY("troop_info_id") REFERENCES "troop_info"("id");
+
+ALTER TABLE resources
+ADD CONSTRAINT gold_non_negative
+CHECK (gold >= 0);
+
+ALTER TABLE resources
+ADD CONSTRAINT elixir_non_negative
+CHECK (elixir >= 0);

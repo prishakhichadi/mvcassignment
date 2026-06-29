@@ -69,19 +69,30 @@ func (tc *TroopController) TrainUnitsInstant(w http.ResponseWriter, r *http.Requ
 	unitCost := int64(costVal.(float64))
 	totalCost := unitCost * int64(req.Quantity)
 
-	var balance int64
-	if err := tx.Get(&balance, "SELECT elixir FROM resources WHERE player_id = $1", userID); err != nil {
+	result, err := tx.Exec(`
+	UPDATE resources
+	SET elixir = elixir - $1,
+		updated_at = NOW()
+	WHERE player_id = $2
+	AND elixir >= $1
+	`,
+		totalCost,
+		userID,
+	)
+
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	if balance < totalCost {
+	rows, err := result.RowsAffected()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if rows == 0 {
 		http.Error(w, "You don't have enough Elixir for this training order", http.StatusPaymentRequired)
-		return
-	}
-
-	if _, err = tx.Exec("UPDATE resources SET elixir = elixir - $1, updated_at = NOW() WHERE player_id = $2", totalCost, userID); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 

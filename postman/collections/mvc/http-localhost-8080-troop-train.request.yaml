@@ -12,5 +12,5 @@ body:
 auth:
   type: bearer
   credentials:
-    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwbGF5ZXJfaWQiOiIwMWUzM2IzZC05MGU1LTRmN2ItYTdjMS1hYjAzNmVlNTI0NzkiLCJleHAiOjE3ODEyNjExOTh9.TfN6LFN-091mfol5m6_WwB8wXgPOSnQEO_cY_F9GIL0
+    token: <JWT_TOKEN>
 order: 4111087220139580

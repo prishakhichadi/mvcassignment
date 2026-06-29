@@ -61,20 +61,33 @@ func (tc *TownController) UpgradeTownHall(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var currentGold int64
-	if err := tx.Get(&currentGold, `SELECT gold FROM resources WHERE player_id = $1`, playerID); err != nil {
+	result, err := tx.Exec(`
+	UPDATE resources
+	SET gold = gold - $1,
+		updated_at = NOW()
+	WHERE player_id = $2
+	AND gold >= $1
+	`,
+		req.GoldCost,
+		playerID,
+	)
+
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	if currentGold < req.GoldCost {
-		http.Error(w, fmt.Sprintf("Not enough gold: need %d, have %d", req.GoldCost, currentGold), http.StatusPaymentRequired)
 		return
 	}
 
-	if _, err := tx.Exec(`UPDATE resources SET gold = gold - $1, updated_at = NOW() WHERE player_id = $2`, req.GoldCost, playerID); err != nil {
+	rows, err := result.RowsAffected()
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	if rows == 0 {
+		http.Error(w, "Not enough gold", http.StatusPaymentRequired)
+		return
+	}
+
 	if _, err := tx.Exec(`UPDATE town SET level = $1 WHERE id = $2`, nextLevel, town.ID); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

@@ -252,8 +252,60 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 		lootedGold := int64(destruction * 100)
 		lootedElixir := int64(destruction * 100)
 
-		//give loot to attacker
-		if _, err := tx.Exec(`UPDATE resources SET gold = gold + $1, elixir = elixir + $2 WHERE player_id = $3`, lootedGold, lootedElixir, attackerID); err != nil {
+		var defenderGold int64
+		var defenderElixir int64
+
+		err = tx.QueryRow(
+			`
+		SELECT gold, elixir
+		FROM resources
+		WHERE player_id = $1
+		FOR UPDATE
+		`,
+			target.PlayerID,
+		).Scan(&defenderGold, &defenderElixir)
+
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if lootedGold > defenderGold {
+			lootedGold = defenderGold
+		}
+
+		if lootedElixir > defenderElixir {
+			lootedElixir = defenderElixir
+		}
+
+		_, err = tx.Exec(`
+		UPDATE resources
+		SET gold = gold - $1,
+			elixir = elixir - $2
+		WHERE player_id = $3
+		`,
+			lootedGold,
+			lootedElixir,
+			target.PlayerID,
+		)
+
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		_, err = tx.Exec(`
+		UPDATE resources
+		SET gold = gold + $1,
+			elixir = elixir + $2
+		WHERE player_id = $3
+		`,
+			lootedGold,
+			lootedElixir,
+			attackerID,
+		)
+
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
