@@ -39,10 +39,6 @@
 
 Now open a browser to `http://localhost:5173` and you should see the login page. The API runs on `http://localhost:8080`.
 
-In case you get an error about ports not being available, make sure `localhost:5432`, `:8080`, and `:5173` are free on your machine before starting.
-
-
-Only the db is containerized as of now, the backend and frontend run directly on your machine.
 
 ## Stopping
 
@@ -51,7 +47,6 @@ docker compose down
 ```
 
 To wipe the database and start fresh:
-
 ```
 docker compose down -v
 ```
