@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"mvcassignment/internal/models"
+	"mvcassignment/internal/types"
 
 	"os"
 
@@ -21,11 +22,6 @@ type AuthHandler struct {
 	DB *sqlx.DB
 }
 
-type authRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
 type UserClaims struct {
 	PlayerID string `json:"player_id"`
 	jwt.RegisteredClaims
@@ -37,7 +33,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req authRequest
+	var req types.AuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -66,15 +62,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req authRequest
+	var req types.AuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	var p models.Player
-	query := "SELECT id, username, password, created_at FROM players WHERE username = $1"
-	err := h.DB.Get(&p, query, req.Username)
+	p, err := models.GetPlayerByUsername(h.DB, req.Username)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			w.WriteHeader(http.StatusUnauthorized)

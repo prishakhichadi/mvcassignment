@@ -264,11 +264,6 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 			return
 		}
 
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
 		if outcome == "win" {
 			tx.Exec(`UPDATE player_stats SET wins_attack = wins_attack + 1, trophy_count = trophy_count + $1 WHERE player_id = $2`, stars*10, attackerID)
 			tx.Exec(`UPDATE player_stats SET wins_defense = wins_defense + 1 WHERE player_id = $1`, target.PlayerID)

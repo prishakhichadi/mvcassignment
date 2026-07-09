@@ -39,7 +39,33 @@ func LootResources(tx *sqlx.Tx, defenderID string, wantGold, wantElixir int64) (
 }
 
 func CreditResources(tx *sqlx.Tx, playerID string, gold, elixir int64) error {
-	_, err := tx.Exec(`UPDATE resources SET gold = gold + $1, elixir = elixir + $2 WHERE player_id = $3`,
+	_, err := tx.Exec(`UPDATE resources SET gold = gold + $1, elixir = elixir + $2, updated_at = NOW() WHERE player_id = $3`,
 		gold, elixir, playerID)
 	return err
+}
+
+func SpendGold(tx *sqlx.Tx, playerID string, amount int64) (ok bool, err error) {
+	result, err := tx.Exec(`UPDATE resources SET gold = gold - $1, updated_at = NOW() WHERE player_id = $2 AND gold >= $1`,
+		amount, playerID)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return rows > 0, nil
+}
+
+func SpendElixir(tx *sqlx.Tx, playerID string, amount int64) (ok bool, err error) {
+	result, err := tx.Exec(`UPDATE resources SET elixir = elixir - $1, updated_at = NOW() WHERE player_id = $2 AND elixir >= $1`,
+		amount, playerID)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return rows > 0, nil
 }
