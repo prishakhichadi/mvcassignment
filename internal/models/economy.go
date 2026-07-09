@@ -22,3 +22,24 @@ func GetPlayerResources(db *sqlx.DB, playerID string) (*Resources, error) {
 	}
 	return &r, nil
 }
+
+func LootResources(tx *sqlx.Tx, defenderID string, wantGold, wantElixir int64) (goldTaken, elixirTaken int64, err error) {
+	err = tx.QueryRow(`
+		WITH before AS (
+			SELECT gold, elixir FROM resources WHERE player_id = $1 FOR UPDATE
+		)
+		UPDATE resources r
+		SET gold   = before.gold   - LEAST(before.gold, $2),
+		    elixir = before.elixir - LEAST(before.elixir, $3)
+		FROM before
+		WHERE r.player_id = $1
+		RETURNING LEAST(before.gold, $2), LEAST(before.elixir, $3)
+	`, defenderID, wantGold, wantElixir).Scan(&goldTaken, &elixirTaken)
+	return
+}
+
+func CreditResources(tx *sqlx.Tx, playerID string, gold, elixir int64) error {
+	_, err := tx.Exec(`UPDATE resources SET gold = gold + $1, elixir = elixir + $2 WHERE player_id = $3`,
+		gold, elixir, playerID)
+	return err
+}

@@ -5,6 +5,7 @@ import (
 	"mvcassignment/config"
 	"mvcassignment/internal/controllers"
 	"net/http"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -21,10 +22,11 @@ func main() {
 	auth := &controllers.AuthHandler{DB: dbConn}
 	town := &controllers.TownController{DB: dbConn}
 	troop := &controllers.TroopController{DB: dbConn}
-	player := &controllers.PlayerController{DB: dbConn} // NEW: backs /player/profile
+	player := &controllers.PlayerController{DB: dbConn}        // NEW: backs /player/profile
+	loginLimiter := controllers.NewRateLimiter(5, time.Minute) // 5 attempts/min/IP
 
-	http.HandleFunc("/register", controllers.CORSMiddleware(auth.Register))
-	http.HandleFunc("/login", controllers.CORSMiddleware(auth.Login))
+	http.HandleFunc("/register", controllers.CORSMiddleware(loginLimiter.Middleware(auth.Register)))
+	http.HandleFunc("/login", controllers.CORSMiddleware(loginLimiter.Middleware(auth.Login)))
 	http.HandleFunc("/player/profile", controllers.CORSMiddleware(controllers.ContentGuard(player.GetProfile))) // NEW
 	http.HandleFunc("/town/layout", controllers.CORSMiddleware(controllers.ContentGuard(town.GetLayout)))
 	http.HandleFunc("/town/place", controllers.CORSMiddleware(controllers.ContentGuard(town.PlaceStructure)))
