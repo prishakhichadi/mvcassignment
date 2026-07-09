@@ -3,46 +3,13 @@ package controllers
 import (
 	"database/sql"
 	"encoding/json"
-	"mvcassignment/internal/models"
 	"net/http"
 
 	"github.com/jmoiron/sqlx"
+
+	"mvcassignment/internal/models"
+	"mvcassignment/internal/types"
 )
-
-type deployedTroopReq struct {
-	TroopName string `json:"troop_name"`
-	Quantity  int    `json:"quantity"`
-}
-
-type attackRequest struct {
-	Troops []deployedTroopReq `json:"troops"`
-}
-
-type enemyBuildingOut struct {
-	Name      string `json:"name"`
-	X         int    `json:"x"`
-	Y         int    `json:"y"`
-	Level     int    `json:"level"`
-	MaxHP     int    `json:"max_hp"`
-	HP        int    `json:"hp"`
-	Destroyed bool   `json:"destroyed"`
-}
-
-type defBuildingRow struct {
-	Name      string `db:"name"`
-	X         int    `db:"x"`
-	Y         int    `db:"y"`
-	Level     int    `db:"level"`
-	LevelInfo string `db:"level_info"`
-}
-
-type playerTroopRow struct {
-	TroopInfoID string `db:"troop_info_id"`
-	Name        string `db:"name"`
-	Quantity    int    `db:"quantity"`
-	Level       int    `db:"level"`
-	LevelInfo   string `db:"level_info"`
-}
 
 func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -57,9 +24,9 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 			return
 		}
 
-		var req attackRequest
+		var req types.AttackRequest
 		if r.Body != nil {
-			_ = json.NewDecoder(r.Body).Decode(&req) // ignore decode errors -- empty body is valid
+			_ = json.NewDecoder(r.Body).Decode(&req)
 		}
 
 		tx, err := db.Beginx()
@@ -69,11 +36,8 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		var target struct {
-			TownID   string `db:"id"`
-			PlayerID string `db:"player_id"`
-		}
-		if err := tx.Get(&target, `SELECT id, player_id FROM town WHERE player_id != $1 LIMIT 1`, attackerID); err != nil {
+		target, err := models.GetRandomOpponent(tx, attackerID)
+		if err != nil {
 			if err == sql.ErrNoRows {
 				http.Error(w, "No opponents available", http.StatusNotFound)
 				return
@@ -82,12 +46,8 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 			return
 		}
 
-		var ownedTroops []playerTroopRow
-		if err := tx.Select(&ownedTroops, `
-			SELECT pt.troop_info_id, ti.name, pt.quantity, pt.level, ti.level_info
-			FROM player_troop pt
-			JOIN troop_info ti ON ti.id = pt.troop_info_id
-			WHERE pt.player_id = $1 AND pt.quantity > 0`, attackerID); err != nil {
+		ownedTroops, err := models.GetOwnedTroopsForBattle(tx, attackerID)
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -96,7 +56,7 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 			return
 		}
 
-		ownedByName := map[string]*playerTroopRow{}
+		ownedByName := map[string]*models.PlayerTroopRow{}
 		for i := range ownedTroops {
 			t := &ownedTroops[i]
 			ownedByName[t.Name] = t
@@ -111,19 +71,12 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 		var deployed []deployedTroop
 		totalDeployedCount := 0
 
-		addDeployed := func(row *playerTroopRow, qty int) {
+		addDeployed := func(row *models.PlayerTroopRow, qty int) {
 			if qty <= 0 {
 				return
 			}
-			var stats map[string]map[string]any
-			_ = json.Unmarshal([]byte(row.LevelInfo), &stats)
-			levelKey := itoa(row.Level)
-			dps := 0.0
-			if lvl, ok := stats[levelKey]; ok {
-				if v, ok := lvl["dps"]; ok {
-					dps = toFloat(v)
-				}
-			}
+			stats, _ := models.ParseLevelInfo(row.LevelInfo)
+			dps := stats.Float(row.Level, "dps")
 			deployed = append(deployed, deployedTroop{
 				TroopInfoID: row.TroopInfoID,
 				Name:        row.Name,
@@ -161,12 +114,8 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 			totalAttackerDPS += d.DPS * float64(d.Quantity)
 		}
 
-		var defRows []defBuildingRow
-		if err := tx.Select(&defRows, `
-			SELECT bi.name, tb.x, tb.y, tb.level, bi.level_info
-			FROM town_buildings tb
-			JOIN building_info bi ON bi.id = tb.building_info_id
-			WHERE tb.town_id = $1`, target.TownID); err != nil {
+		defRows, err := models.GetDefenderBuildings(tx, target.TownID)
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -182,23 +131,15 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 		var totalDefenderHP float64
 
 		for _, b := range defRows {
-			var stats map[string]map[string]any
-			_ = json.Unmarshal([]byte(b.LevelInfo), &stats)
-			levelKey := itoa(b.Level)
-			maxHP := 0
-			if lvl, ok := stats[levelKey]; ok {
-				if v, ok := lvl["hp"]; ok {
-					maxHP = int(toFloat(v))
-				}
-			}
+			stats, _ := models.ParseLevelInfo(b.LevelInfo)
+			maxHP := stats.Int(b.Level, "hp")
 			liveBuildings = append(liveBuildings, liveBuilding{
 				Name: b.Name, X: b.X, Y: b.Y, Level: b.Level, MaxHP: maxHP, HP: float64(maxHP),
 			})
 			totalDefenderHP += float64(maxHP)
 		}
 
-		//no buildings placed at all- treat as a full undefended win,
-
+		// no buildings placed at all-full undefended win
 		if len(liveBuildings) == 0 || totalDefenderHP == 0 {
 			liveBuildings = nil
 		}
@@ -250,11 +191,10 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 			outcome = "loss"
 		}
 
-		lootedGold := int64(destruction * 100)
-		lootedElixir := int64(destruction * 100)
+		wantGold := int64(destruction * 100)
+		wantElixir := int64(destruction * 100)
 
-		lootedGold, lootedElixir, err = models.LootResources(tx, target.PlayerID, lootedGold, lootedElixir)
-
+		lootedGold, lootedElixir, err := models.LootResources(tx, target.PlayerID, wantGold, wantElixir)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -265,52 +205,48 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 		}
 
 		if outcome == "win" {
-			tx.Exec(`UPDATE player_stats SET wins_attack = wins_attack + 1, trophy_count = trophy_count + $1 WHERE player_id = $2`, stars*10, attackerID)
-			tx.Exec(`UPDATE player_stats SET wins_defense = wins_defense + 1 WHERE player_id = $1`, target.PlayerID)
+			if err := models.ApplyWinStats(tx, attackerID, target.PlayerID, stars*10); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 		}
 
 		for _, d := range deployed {
-			tx.Exec(`UPDATE player_troop SET quantity = quantity - $1 WHERE player_id = $2 AND troop_info_id = $3`,
-				d.Quantity, attackerID, d.TroopInfoID)
+			if err := models.ConsumeDeployedTroops(tx, attackerID, d.TroopInfoID, d.Quantity); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 		}
-		tx.Exec(`DELETE FROM player_troop WHERE player_id = $1 AND quantity <= 0`, attackerID)
-
-		//record battle
-		metadata, _ := json.Marshal(map[string]interface{}{
-			"mode":             "combat_resolution",
-			"troops_deployed":  totalDeployedCount,
-			"building_count":   len(liveBuildings),
-			"attacker_dps":     totalAttackerDPS,
-			"defender_max_hp":  totalDefenderHP,
-			"buildings_killed": buildingsDestroyed,
-		})
-
-		if _, err := tx.Exec(`
-			INSERT INTO battles (id, attacker_id, defender_id, stars, outcome, start_time, end_time, log, gold_looted, elixir_looted, destr_pct, defense_snapshot)
-			VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW(), $5, $6, $7, $8, $9)`,
-			attackerID, target.PlayerID, stars, outcome, metadata, lootedGold, lootedElixir, destruction, []byte(`[]`)); err != nil {
+		if err := models.PruneEmptyTroops(tx, attackerID); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		var stats struct {
-			WinsAttack  int `db:"wins_attack"`
-			TrophyCount int `db:"trophy_count"`
+		record := models.BattleRecord{
+			AttackerID:   attackerID,
+			DefenderID:   target.PlayerID,
+			Stars:        stars,
+			Outcome:      outcome,
+			GoldLooted:   lootedGold,
+			ElixirLooted: lootedElixir,
+			DestrPct:     destruction,
+			Metadata: map[string]interface{}{
+				"mode":             "combat_resolution",
+				"troops_deployed":  totalDeployedCount,
+				"building_count":   len(liveBuildings),
+				"attacker_dps":     totalAttackerDPS,
+				"defender_max_hp":  totalDefenderHP,
+				"buildings_killed": buildingsDestroyed,
+			},
 		}
-		if err := tx.Get(&stats, `SELECT wins_attack, trophy_count FROM player_stats WHERE player_id = $1`, attackerID); err == nil {
-			var existing int
-			if stats.WinsAttack >= 1 {
-				tx.Get(&existing, `SELECT COUNT(*) FROM achievements_log WHERE player_id = $1 AND type = 'first_win'`, attackerID)
-				if existing == 0 {
-					tx.Exec(`INSERT INTO achievements_log (id, player_id, type, created_at) VALUES (gen_random_uuid(), $1, 'first_win', NOW())`, attackerID)
-				}
-			}
-			if stats.TrophyCount >= 100 {
-				tx.Get(&existing, `SELECT COUNT(*) FROM achievements_log WHERE player_id = $1 AND type = 'resources_looted'`, attackerID)
-				if existing == 0 {
-					tx.Exec(`INSERT INTO achievements_log (id, player_id, type, created_at) VALUES (gen_random_uuid(), $1, 'resources_looted', NOW())`, attackerID)
-				}
-			}
+		if err := models.RecordBattle(tx, record); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if err := models.CheckBattleAchievements(tx, attackerID); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 
 		if err := tx.Commit(); err != nil {
@@ -318,9 +254,9 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 			return
 		}
 
-		var outBuildings []enemyBuildingOut
+		var outBuildings []types.EnemyBuildingOut
 		for _, b := range liveBuildings {
-			outBuildings = append(outBuildings, enemyBuildingOut{
+			outBuildings = append(outBuildings, types.EnemyBuildingOut{
 				Name:      b.Name,
 				X:         b.X,
 				Y:         b.Y,
@@ -331,9 +267,9 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 			})
 		}
 
-		var outDeployed []deployedTroopReq
+		var outDeployed []types.DeployedTroopReq
 		for _, d := range deployed {
-			outDeployed = append(outDeployed, deployedTroopReq{TroopName: d.Name, Quantity: d.Quantity})
+			outDeployed = append(outDeployed, types.DeployedTroopReq{TroopName: d.Name, Quantity: d.Quantity})
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -352,36 +288,5 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 			"enemy_buildings": outBuildings,
 			"deployed_troops": outDeployed,
 		})
-	}
-}
-
-// helpers
-func itoa(n int) string {
-	if n <= 0 {
-		return "1"
-	}
-	digits := "0123456789"
-	if n < 10 {
-		return string(digits[n])
-	}
-
-	var buf []byte
-	for n > 0 {
-		buf = append([]byte{digits[n%10]}, buf...)
-		n /= 10
-	}
-	return string(buf)
-}
-
-func toFloat(v any) float64 {
-	switch x := v.(type) {
-	case float64:
-		return x
-	case int:
-		return float64(x)
-	case int64:
-		return float64(x)
-	default:
-		return 0
 	}
 }

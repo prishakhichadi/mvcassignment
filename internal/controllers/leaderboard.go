@@ -5,15 +5,9 @@ import (
 	"net/http"
 
 	"github.com/jmoiron/sqlx"
-)
 
-type LeaderboardEntry struct {
-	PlayerID    string `db:"player_id" json:"player_id"`
-	Username    string `db:"username" json:"username"`
-	TrophyCount int    `db:"trophy_count" json:"trophy_count"`
-	WinsAttack  int    `db:"wins_attack" json:"wins_attack"`
-	WinsDefense int    `db:"wins_defense" json:"wins_defense"`
-}
+	"mvcassignment/internal/models"
+)
 
 func GetLeaderboard(db *sqlx.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -22,15 +16,8 @@ func GetLeaderboard(db *sqlx.DB) http.HandlerFunc {
 			return
 		}
 
-		var entries []LeaderboardEntry
-		query := `
-			SELECT ps.player_id, p.username, ps.trophy_count, ps.wins_attack, ps.wins_defense
-			FROM player_stats ps
-			JOIN players p ON ps.player_id = p.id
-			ORDER BY ps.trophy_count DESC
-			`
-
-		if err := db.Select(&entries, query); err != nil {
+		entries, err := models.GetLeaderboard(db)
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
