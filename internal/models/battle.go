@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"encoding/json"
 
 	"github.com/jmoiron/sqlx"
@@ -28,6 +29,48 @@ func GetRandomOpponent(tx *sqlx.Tx, attackerID string) (*RaidTarget, error) {
 		return nil, err
 	}
 	return &target, nil
+}
+
+func GetOpponentByPlayerID(tx *sqlx.Tx, attackerID, enemyPlayerID string) (*RaidTarget, error) {
+	if enemyPlayerID == "" || enemyPlayerID == attackerID {
+		return nil, sql.ErrNoRows
+	}
+	var target RaidTarget
+	err := tx.Get(&target, `SELECT id, player_id FROM town WHERE player_id = $1`, enemyPlayerID)
+	if err != nil {
+		return nil, err
+	}
+	return &target, nil
+}
+
+func ListOpponents(db *sqlx.DB, attackerID string) ([]types.OpponentOut, error) {
+	var opponents []types.OpponentOut
+	err := db.Select(&opponents, `
+		SELECT
+			p.id AS player_id,
+			p.username AS username,
+			t.level AS town_level,
+			COALESCE(ps.trophy_count, 0) AS trophy_count,
+			COALESCE((SELECT COUNT(*) FROM town_buildings tb WHERE tb.town_id = t.id), 0) AS buildings
+		FROM town t
+		JOIN players p ON p.id = t.player_id
+		LEFT JOIN player_stats ps ON ps.player_id = p.id
+		WHERE t.player_id != $1
+		ORDER BY p.username ASC`, attackerID)
+	if err != nil {
+		return nil, err
+	}
+	return opponents, nil
+}
+
+func GetScoutedBuildings(db *sqlx.DB, townID string) ([]types.ScoutBuildingOut, error) {
+	var rows []types.ScoutBuildingOut
+	err := db.Select(&rows, `
+		SELECT bi.name, tb.x, tb.y
+		FROM town_buildings tb
+		JOIN building_info bi ON bi.id = tb.building_info_id
+		WHERE tb.town_id = $1`, townID)
+	return rows, err
 }
 
 func GetDefenderBuildings(tx *sqlx.Tx, townID string) ([]DefBuildingRow, error) {

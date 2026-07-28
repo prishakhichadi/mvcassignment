@@ -3,6 +3,7 @@ package controllers
 import (
 	"database/sql"
 	"encoding/json"
+	"math"
 	"net/http"
 
 	"github.com/jmoiron/sqlx"
@@ -10,6 +11,78 @@ import (
 	"mvcassignment/internal/models"
 	"mvcassignment/internal/types"
 )
+
+func ListOpponents(db *sqlx.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		attackerID, ok := r.Context().Value(PlayerContextKey).(string)
+		if !ok || attackerID == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		opponents, err := models.ListOpponents(db, attackerID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"opponents": opponents,
+		})
+	}
+}
+
+func ScoutTarget(db *sqlx.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		attackerID, ok := r.Context().Value(PlayerContextKey).(string)
+		if !ok || attackerID == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		enemyID := r.URL.Query().Get("enemy_id")
+
+		tx, err := db.Beginx()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		defer tx.Rollback()
+
+		target, err := models.GetOpponentByPlayerID(tx, attackerID, enemyID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "That enemy could not be found", http.StatusNotFound)
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		buildings, err := models.GetScoutedBuildings(db, target.TownID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"enemy_id":  target.PlayerID,
+			"buildings": buildings,
+		})
+	}
+}
 
 func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -36,14 +109,27 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		target, err := models.GetRandomOpponent(tx, attackerID)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				http.Error(w, "No opponents available", http.StatusNotFound)
+		var target *models.RaidTarget
+		if req.EnemyID != "" {
+			target, err = models.GetOpponentByPlayerID(tx, attackerID, req.EnemyID)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					http.Error(w, "That enemy could not be found", http.StatusNotFound)
+					return
+				}
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+		} else {
+			target, err = models.GetRandomOpponent(tx, attackerID)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					http.Error(w, "No opponents available", http.StatusNotFound)
+					return
+				}
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 		}
 
 		ownedTroops, err := models.GetOwnedTroopsForBattle(tx, attackerID)
@@ -67,11 +153,23 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 			Name        string
 			Quantity    int
 			DPS         float64
+			X, Y        int
 		}
 		var deployed []deployedTroop
 		totalDeployedCount := 0
 
-		addDeployed := func(row *models.PlayerTroopRow, qty int) {
+		const gridSize = 10
+		clampCoord := func(v int) int {
+			if v < 0 {
+				return 0
+			}
+			if v > gridSize-1 {
+				return gridSize - 1
+			}
+			return v
+		}
+
+		addDeployed := func(row *models.PlayerTroopRow, qty, x, y int) {
 			if qty <= 0 {
 				return
 			}
@@ -82,6 +180,8 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 				Name:        row.Name,
 				Quantity:    qty,
 				DPS:         dps,
+				X:           clampCoord(x),
+				Y:           clampCoord(y),
 			})
 			totalDeployedCount += qty
 		}
@@ -96,11 +196,12 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 				if qty > owned.Quantity {
 					qty = owned.Quantity
 				}
-				addDeployed(owned, qty)
+				addDeployed(owned, qty, reqT.X, reqT.Y)
 			}
 		} else {
+
 			for i := range ownedTroops {
-				addDeployed(&ownedTroops[i], ownedTroops[i].Quantity)
+				addDeployed(&ownedTroops[i], ownedTroops[i].Quantity, i%gridSize, gridSize-1)
 			}
 		}
 
@@ -145,22 +246,39 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 		}
 
 		const engagementSeconds = 45.0
-		damageBudget := totalAttackerDPS * engagementSeconds
+
+		for _, d := range deployed {
+			damageBudget := d.DPS * engagementSeconds
+			for damageBudget > 0 {
+				var nearest *liveBuilding
+				nearestDist := math.MaxFloat64
+				for i := range liveBuildings {
+					b := &liveBuildings[i]
+					if b.HP <= 0 {
+						continue
+					}
+					dist := math.Hypot(float64(b.X-d.X), float64(b.Y-d.Y))
+					if dist < nearestDist {
+						nearestDist = dist
+						nearest = b
+					}
+				}
+				if nearest == nil {
+					break
+				}
+				if damageBudget >= nearest.HP {
+					damageBudget -= nearest.HP
+					nearest.HP = 0
+				} else {
+					nearest.HP -= damageBudget
+					damageBudget = 0
+				}
+			}
+		}
 
 		buildingsDestroyed := 0
 		for i := range liveBuildings {
-			if damageBudget <= 0 {
-				break
-			}
-			b := &liveBuildings[i]
-			if damageBudget >= b.HP {
-				damageBudget -= b.HP
-				b.HP = 0
-			} else {
-				b.HP -= damageBudget
-				damageBudget = 0
-			}
-			if b.HP <= 0 {
+			if liveBuildings[i].HP <= 0 {
 				buildingsDestroyed++
 			}
 		}
@@ -269,7 +387,7 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 
 		var outDeployed []types.DeployedTroopReq
 		for _, d := range deployed {
-			outDeployed = append(outDeployed, types.DeployedTroopReq{TroopName: d.Name, Quantity: d.Quantity})
+			outDeployed = append(outDeployed, types.DeployedTroopReq{TroopName: d.Name, Quantity: d.Quantity, X: d.X, Y: d.Y})
 		}
 
 		w.Header().Set("Content-Type", "application/json")

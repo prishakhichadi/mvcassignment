@@ -25,10 +25,27 @@ type PlaceStructureRequest struct {
 type DeployedTroopReq struct {
 	TroopName string `json:"troop_name"`
 	Quantity  int    `json:"quantity"`
+	X         int    `json:"x"`
+	Y         int    `json:"y"`
 }
 
 type AttackRequest struct {
-	Troops []DeployedTroopReq `json:"troops"`
+	EnemyID string             `json:"enemy_id"`
+	Troops  []DeployedTroopReq `json:"troops"`
+}
+
+type OpponentOut struct {
+	PlayerID    string `db:"player_id" json:"player_id"`
+	Username    string `db:"username" json:"username"`
+	TownLevel   int    `db:"town_level" json:"town_level"`
+	TrophyCount int    `db:"trophy_count" json:"trophy_count"`
+	Buildings   int    `db:"buildings" json:"buildings_count"`
+}
+
+type ScoutBuildingOut struct {
+	Name string `db:"name" json:"name"`
+	X    int    `db:"x" json:"x"`
+	Y    int    `db:"y" json:"y"`
 }
 
 type EnemyBuildingOut struct {

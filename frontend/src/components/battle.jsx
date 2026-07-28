@@ -3,7 +3,9 @@ import { colors, BuildingIcon, TroopIcon, TROOP_DEFS, IconGold, IconElixir, Icon
 
 const FIELD_W = 560;
 const FIELD_H = 560;
-const BATTLE_DURATION_MS = 6000; //5-7s window for attack to play out
+const BATTLE_DURATION_MS = 6000;
+
+const GRID_SIZE = 10;
 
 function Battle({ token, onRaidComplete }) {
   const [loading, setLoading] = useState(false);
@@ -14,10 +16,18 @@ function Battle({ token, onRaidComplete }) {
   const [troopsLoading, setTroopsLoading] = useState(false);
   const [deployCounts, setDeployCounts] = useState({}); 
   const [buildings, setBuildings] = useState([]); 
-  const [troops, setTroops] = useState([]); // [{id, kind, xPct, yPct, attacking}]
+  const [troops, setTroops] = useState([]); 
   const [timeLeftMs, setTimeLeftMs] = useState(BATTLE_DURATION_MS);
   const [liveDestructionPct, setLiveDestructionPct] = useState(0);
-  const [impacts, setImpacts] = useState([]); // brief hit-flash markers [{id,xPct,yPct}]
+  const [impacts, setImpacts] = useState([]); 
+
+
+  const [opponents, setOpponents] = useState([]);
+  const [opponentsLoading, setOpponentsLoading] = useState(false);
+  const [selectedEnemy, setSelectedEnemy] = useState(null); 
+  const [scoutBuildings, setScoutBuildings] = useState([]); 
+  const [deployPositions, setDeployPositions] = useState({}); 
+  const [activePlacementTroop, setActivePlacementTroop] = useState('');
 
   const timersRef = useRef([]);
 
@@ -30,35 +40,79 @@ function Battle({ token, onRaidComplete }) {
     return function () { clearTimers(); };
   }, []);
 
-  // ---- step 1: player clicks "find target" -> load their army, show deploy screen ----
+
   function handleFindTarget(e) {
     e.preventDefault();
     setError('');
     setBattleResult(null);
     clearTimers();
-    setTroopsLoading(true);
+    setOpponentsLoading(true);
 
-    fetch('http://localhost:8080/troop/list', {
+    fetch('http://localhost:8080/troop/opponents', {
       method: 'GET',
       headers: { 'Authorization': 'Bearer ' + token }
     })
     .then(function (res) {
-      if (res.ok === false) throw new Error('Could not load your army');
+      if (res.ok === false) throw new Error('Could not load enemy list');
       return res.json();
     })
     .then(function (data) {
-      const list = normalizeTroopList(data);
-      setMyTroops(list);
-      const counts = {};
-      list.forEach(function (t) { counts[t.name] = 0; });
-      setDeployCounts(counts);
-      setTroopsLoading(false);
-      setPhase('deploy');
+      const list = Array.isArray(data.opponents) ? data.opponents : [];
+      setOpponents(list);
+      setOpponentsLoading(false);
+      setPhase('select-enemy');
     })
     .catch(function (err) {
-      setTroopsLoading(false);
+      setOpponentsLoading(false);
       setError(err.message);
     });
+  }
+
+
+  function handlePickEnemy(enemy) {
+    setError('');
+    setSelectedEnemy(enemy);
+    setTroopsLoading(true);
+    setDeployPositions({});
+    setActivePlacementTroop('');
+
+    const troopsReq = fetch('http://localhost:8080/troop/list', {
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + token }
+    }).then(function (res) {
+      if (res.ok === false) throw new Error('Could not load your army');
+      return res.json();
+    });
+
+    const scoutReq = fetch('http://localhost:8080/troop/scout?enemy_id=' + encodeURIComponent(enemy.player_id), {
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + token }
+    }).then(function (res) {
+      if (res.ok === false) throw new Error('Could not scout that village');
+      return res.json();
+    });
+
+    Promise.all([troopsReq, scoutReq])
+      .then(function (results) {
+        const troopData = results[0];
+        const scoutData = results[1];
+
+        const list = normalizeTroopList(troopData);
+        setMyTroops(list);
+        const counts = {};
+        list.forEach(function (t) { counts[t.name] = 0; });
+        setDeployCounts(counts);
+        setActivePlacementTroop(list.length > 0 ? list[0].name : '');
+
+        setScoutBuildings(Array.isArray(scoutData.buildings) ? scoutData.buildings : []);
+
+        setTroopsLoading(false);
+        setPhase('deploy');
+      })
+      .catch(function (err) {
+        setTroopsLoading(false);
+        setError(err.message);
+      });
   }
 
   function normalizeTroopList(data) {
@@ -80,7 +134,28 @@ function Battle({ token, onRaidComplete }) {
     setDeployCounts(function (prev) {
       const current = prev[name] || 0;
       const next = Math.max(0, Math.min(maxQty, current + delta));
+
+      
+      setDeployPositions(function (prevPositions) {
+        if (next > 0 && current === 0) {
+          return Object.assign({}, prevPositions, { [name]: prevPositions[name] || { x: 5, y: 5 } });
+        }
+        if (next === 0 && prevPositions[name]) {
+          const copy = Object.assign({}, prevPositions);
+          delete copy[name];
+          return copy;
+        }
+        return prevPositions;
+      });
+
       return Object.assign({}, prev, { [name]: next });
+    });
+  }
+
+  function handlePlacementGridClick(x, y) {
+    if (activePlacementTroop === '') return;
+    setDeployPositions(function (prev) {
+      return Object.assign({}, prev, { [activePlacementTroop]: { x: x, y: y } });
     });
   }
 
@@ -92,12 +167,19 @@ function Battle({ token, onRaidComplete }) {
       setError('Pick at least one troop to deploy.');
       return;
     }
+    if (!selectedEnemy) {
+      setError('Choose an enemy to raid first.');
+      return;
+    }
     setLoading(true);
     setError('');
 
     const troopsPayload = Object.keys(deployCounts)
       .filter(function (name) { return deployCounts[name] > 0; })
-      .map(function (name) { return { troop_name: name, quantity: deployCounts[name] }; });
+      .map(function (name) {
+        const pos = deployPositions[name] || { x: 5, y: 5 };
+        return { troop_name: name, quantity: deployCounts[name], x: pos.x, y: pos.y };
+      });
 
     fetch('http://localhost:8080/troop/attack', {
       method: 'POST',
@@ -105,7 +187,7 @@ function Battle({ token, onRaidComplete }) {
         'Authorization': 'Bearer ' + token,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ troops: troopsPayload })
+      body: JSON.stringify({ enemy_id: selectedEnemy.player_id, troops: troopsPayload })
     })
     .then(function (res) {
       if (res.ok === false) {
@@ -124,7 +206,7 @@ function Battle({ token, onRaidComplete }) {
     });
   }
 
-//animate
+
   function setupBattlefield(data) {
     const rawBuildings = (data.enemy_buildings || []);
 
@@ -151,18 +233,42 @@ function Battle({ token, onRaidComplete }) {
     setImpacts([]);
     setPhase('fighting');
 
-    const deployedNames = Object.keys(deployCounts).filter(function (n) { return deployCounts[n] > 0; });
-    const spawnCount = Math.min(6, Math.max(3, deployedNames.length || 3));
+    const deployedGroups = Array.isArray(data.deployed_troops) ? data.deployed_troops : [];
     const initialTroops = [];
-    for (let i = 0; i < spawnCount; i++) {
-      const kind = deployedNames.length > 0 ? deployedNames[i % deployedNames.length] : TROOP_DEFS[i % TROOP_DEFS.length].key;
-      initialTroops.push({
-        id: 'troop-' + i,
-        kind: kind,
-        xPct: 0.15 + (i / spawnCount) * 0.7,
-        yPct: 0.96,
-        attacking: false
+    let idCounter = 0;
+
+    if (deployedGroups.length > 0) {
+      deployedGroups.forEach(function (d) {
+        const gx = d.x != null ? d.x : 5;
+        const gy = d.y != null ? d.y : 9;
+        const xPct = Math.min(0.94, Math.max(0.06, (gx + 0.5) / 10));
+        const yPct = Math.min(0.94, Math.max(0.06, (gy + 0.5) / 10));
+
+        
+        if (initialTroops.length < 8) {
+          initialTroops.push({
+            id: 'troop-' + idCounter,
+            kind: d.troop_name,
+            xPct: xPct,
+            yPct: yPct,
+            attacking: false
+          });
+          idCounter += 1;
+        }
       });
+    } else {
+      const deployedNames = Object.keys(deployCounts).filter(function (n) { return deployCounts[n] > 0; });
+      const spawnCount = Math.min(6, Math.max(3, deployedNames.length || 3));
+      for (let i = 0; i < spawnCount; i++) {
+        const kind = deployedNames.length > 0 ? deployedNames[i % deployedNames.length] : TROOP_DEFS[i % TROOP_DEFS.length].key;
+        initialTroops.push({
+          id: 'troop-' + i,
+          kind: kind,
+          xPct: 0.15 + (i / spawnCount) * 0.7,
+          yPct: 0.96,
+          attacking: false
+        });
+      }
     }
     setTroops(initialTroops);
 
@@ -265,6 +371,10 @@ function Battle({ token, onRaidComplete }) {
     setTroops([]);
     setImpacts([]);
     setDeployCounts({});
+    setSelectedEnemy(null);
+    setScoutBuildings([]);
+    setDeployPositions({});
+    setActivePlacementTroop('');
     setPhase('idle');
   }
 
@@ -275,7 +385,7 @@ function Battle({ token, onRaidComplete }) {
     <div style={{ padding: '24px', color: colors.textMain }}>
       <h2 style={{ fontSize: '20px', margin: '0 0 4px 0' }}>Raid an enemy village</h2>
       <p style={{ color: colors.textDim, fontSize: '13px', marginBottom: '20px' }}>
-        Find a target, choose your troops, then deploy.
+        Pick your enemy, choose your troops, drop them exactly where you want on the grid, then deploy.
       </p>
 
       {error !== '' ? (
@@ -302,7 +412,7 @@ function Battle({ token, onRaidComplete }) {
         }}>
           <button
             onClick={handleFindTarget}
-            disabled={troopsLoading === true}
+            disabled={opponentsLoading === true}
             style={{
               backgroundColor: colors.purple,
               color: '#fff',
@@ -311,15 +421,71 @@ function Battle({ token, onRaidComplete }) {
               padding: '14px 28px',
               fontSize: '15px',
               fontWeight: 'bold',
-              cursor: troopsLoading === true ? 'not-allowed' : 'pointer',
-              opacity: troopsLoading === true ? 0.6 : 1,
+              cursor: opponentsLoading === true ? 'not-allowed' : 'pointer',
+              opacity: opponentsLoading === true ? 0.6 : 1,
               display: 'inline-flex',
               alignItems: 'center',
               gap: '10px'
             }}
           >
             <IconCrosshair size={18} color="#fff" />
-            {troopsLoading === true ? 'Scouting for a target...' : 'Find target'}
+            {opponentsLoading === true ? 'Scouting for targets...' : 'Find target'}
+          </button>
+        </div>
+      ) : null}
+
+      {phase === 'select-enemy' ? (
+        <div style={{
+          backgroundColor: colors.bgCard,
+          border: '1px solid ' + colors.border,
+          borderRadius: '14px',
+          padding: '20px',
+          maxWidth: '480px'
+        }}>
+          <h3 style={{ margin: '0 0 4px 0', fontSize: '15px' }}>Choose your enemy</h3>
+          <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: colors.textDim }}>
+            Pick which village to raid.
+          </p>
+
+          {opponents.length === 0 ? (
+            <div style={{ backgroundColor: colors.bgDark, borderRadius: '8px', padding: '20px', textAlign: 'center', color: colors.textDim, fontSize: '13px' }}>
+              No other villages to raid right now.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', maxHeight: '340px', overflowY: 'auto' }}>
+              {opponents.map(function (o) {
+                return (
+                  <button
+                    key={o.player_id}
+                    onClick={function () { handlePickEnemy(o); }}
+                    disabled={troopsLoading === true}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      backgroundColor: colors.bgDark, borderRadius: '8px', padding: '10px 12px',
+                      border: '1px solid ' + colors.border, cursor: troopsLoading === true ? 'not-allowed' : 'pointer',
+                      textAlign: 'left', fontFamily: 'inherit'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff' }}>{o.username}</div>
+                      <div style={{ fontSize: '11px', color: colors.textDim }}>
+                        Town level {o.town_level} &middot; {o.buildings_count} building{o.buildings_count === 1 ? '' : 's'}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: colors.gold, fontSize: '13px', fontWeight: 'bold' }}>
+                      <IconStar size={14} filled={true} /> {o.trophy_count}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <button
+            onClick={resetForNextRaid}
+            style={{ width: '100%', backgroundColor: 'transparent', border: '1px solid ' + colors.border, color: colors.textDim, borderRadius: '8px', padding: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+          >
+            Cancel
           </button>
         </div>
       ) : null}
@@ -330,70 +496,135 @@ function Battle({ token, onRaidComplete }) {
           border: '1px solid ' + colors.border,
           borderRadius: '14px',
           padding: '20px',
-          maxWidth: '440px'
+          maxWidth: '760px',
+          display: 'flex',
+          gap: '20px',
+          flexWrap: 'wrap'
         }}>
-          <h3 style={{ margin: '0 0 4px 0', fontSize: '15px' }}>Plan your attack</h3>
-          <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: colors.textDim }}>
-            Choose which troops to send. Whatever you deploy will be spent on this raid.
-          </p>
+          <div style={{ flex: '1 1 320px', minWidth: '280px' }}>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '15px' }}>
+              Plan your attack on {selectedEnemy ? selectedEnemy.username : 'this village'}
+            </h3>
+            
 
-          {myTroops.length === 0 ? (
-            <div style={{ backgroundColor: colors.bgDark, borderRadius: '8px', padding: '20px', textAlign: 'center', color: colors.textDim, fontSize: '13px' }}>
-              You have no trained troops. Train some first.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-              {myTroops.map(function (t) {
-                const count = deployCounts[t.name] || 0;
-                return (
-                  <div key={t.name} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    backgroundColor: colors.bgDark, borderRadius: '8px', padding: '10px 12px',
-                    border: '1px solid ' + colors.border
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <TroopIcon name={t.name} size={20} color={colors.purpleLight} />
-                      <div>
-                        <div style={{ fontSize: '13px' }}>{t.name}</div>
-                        <div style={{ fontSize: '11px', color: colors.textDim }}>Owned: {t.quantity}</div>
+            {myTroops.length === 0 ? (
+              <div style={{ backgroundColor: colors.bgDark, borderRadius: '8px', padding: '20px', textAlign: 'center', color: colors.textDim, fontSize: '13px' }}>
+                You have no trained troops. Train some first.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                {myTroops.map(function (t) {
+                  const count = deployCounts[t.name] || 0;
+                  const pos = deployPositions[t.name];
+                  const isActive = activePlacementTroop === t.name;
+                  return (
+                    <div
+                      key={t.name}
+                      onClick={function () { setActivePlacementTroop(t.name); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        backgroundColor: isActive ? colors.bgCardRaised : colors.bgDark, borderRadius: '8px', padding: '10px 12px',
+                        border: '1px solid ' + (isActive ? colors.purpleLight : colors.border), cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <TroopIcon name={t.name} size={20} color={colors.purpleLight} />
+                        <div>
+                          <div style={{ fontSize: '13px' }}>{t.name}</div>
+                          <div style={{ fontSize: '11px', color: colors.textDim }}>
+                            Owned: {t.quantity}
+                            {count > 0 && pos ? ' \u00b7 drop at (' + pos.x + ', ' + pos.y + ')' : ''}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} onClick={function (e) { e.stopPropagation(); }}>
+                        <button
+                          onClick={function () { adjustDeploy(t.name, -1, t.quantity); }}
+                          style={{ width: '26px', height: '26px', borderRadius: '6px', border: '1px solid ' + colors.border, backgroundColor: colors.bgCardRaised, color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
+                        >-</button>
+                        <span style={{ minWidth: '24px', textAlign: 'center', fontWeight: 'bold', color: colors.purpleLight }}>{count}</span>
+                        <button
+                          onClick={function () { adjustDeploy(t.name, 1, t.quantity); }}
+                          style={{ width: '26px', height: '26px', borderRadius: '6px', border: '1px solid ' + colors.border, backgroundColor: colors.bgCardRaised, color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
+                        >+</button>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <button
-                        onClick={function () { adjustDeploy(t.name, -1, t.quantity); }}
-                        style={{ width: '26px', height: '26px', borderRadius: '6px', border: '1px solid ' + colors.border, backgroundColor: colors.bgCardRaised, color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
-                      >-</button>
-                      <span style={{ minWidth: '24px', textAlign: 'center', fontWeight: 'bold', color: colors.purpleLight }}>{count}</span>
-                      <button
-                        onClick={function () { adjustDeploy(t.name, 1, t.quantity); }}
-                        style={{ width: '26px', height: '26px', borderRadius: '6px', border: '1px solid ' + colors.border, backgroundColor: colors.bgCardRaised, color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
-                      >+</button>
-                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={resetForNextRaid}
+                style={{ flex: 1, backgroundColor: 'transparent', border: '1px solid ' + colors.border, color: colors.textDim, borderRadius: '8px', padding: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeploy}
+                disabled={loading === true || totalToDeploy === 0}
+                style={{
+                  flex: 2,
+                  backgroundColor: (loading || totalToDeploy === 0) ? '#444466' : colors.purple,
+                  color: '#fff', border: 'none', borderRadius: '8px', padding: '12px',
+                  fontWeight: 'bold', cursor: (loading || totalToDeploy === 0) ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {loading === true ? 'Deploying...' : 'Deploy ' + totalToDeploy + ' troop' + (totalToDeploy === 1 ? '' : 's')}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ flex: '0 0 auto' }}>
+            <div style={{ fontSize: '11px', color: colors.textDim, marginBottom: '6px' }}>
+              {activePlacementTroop ? 'Tap a tile to drop ' + activePlacementTroop : 'Pick a troop to place it'}
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(' + GRID_SIZE + ', 28px)',
+              gridTemplateRows: 'repeat(' + GRID_SIZE + ', 28px)',
+              gap: '3px',
+              backgroundColor: colors.bgDark,
+              padding: '10px',
+              borderRadius: '8px',
+              border: '1px solid ' + colors.border,
+              width: 'fit-content'
+            }}>
+              {Array.from({ length: GRID_SIZE * GRID_SIZE }).map(function (_, idx) {
+                const gx = idx % GRID_SIZE;
+                const gy = Math.floor(idx / GRID_SIZE);
+                const building = scoutBuildings.find(function (b) { return b.x === gx && b.y === gy; });
+                const troopsHere = Object.keys(deployPositions).filter(function (name) {
+                  const p = deployPositions[name];
+                  return p && p.x === gx && p.y === gy && (deployCounts[name] || 0) > 0;
+                });
+                let bg = 'rgba(255,255,255,0.04)';
+                if (building) bg = colors.buildingFill;
+                if (troopsHere.length > 0) bg = colors.purple;
+                return (
+                  <div
+                    key={gx + '-' + gy}
+                    title={building ? building.name : gx + ',' + gy}
+                    onClick={function () { handlePlacementGridClick(gx, gy); }}
+                    style={{
+                      width: '28px', height: '28px', borderRadius: '4px',
+                      backgroundColor: bg,
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      cursor: activePlacementTroop ? 'pointer' : 'default',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}
+                  >
+                    {building ? <BuildingIcon name={building.name} size={14} color="#fff" /> : null}
+                    {troopsHere.length > 0 ? <TroopIcon name={troopsHere[0]} size={13} color="#fff" /> : null}
                   </div>
                 );
               })}
             </div>
-          )}
-
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={resetForNextRaid}
-              style={{ flex: 1, backgroundColor: 'transparent', border: '1px solid ' + colors.border, color: colors.textDim, borderRadius: '8px', padding: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleDeploy}
-              disabled={loading === true || totalToDeploy === 0}
-              style={{
-                flex: 2,
-                backgroundColor: (loading || totalToDeploy === 0) ? '#444466' : colors.purple,
-                color: '#fff', border: 'none', borderRadius: '8px', padding: '12px',
-                fontWeight: 'bold', cursor: (loading || totalToDeploy === 0) ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {loading === true ? 'Deploying...' : 'Deploy ' + totalToDeploy + ' troop' + (totalToDeploy === 1 ? '' : 's')}
-            </button>
+            <div style={{ fontSize: '10px', color: colors.textDim, marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div><span style={{ display: 'inline-block', width: '9px', height: '9px', backgroundColor: colors.buildingFill, borderRadius: '2px', marginRight: '5px' }} />Scouted building</div>
+              <div><span style={{ display: 'inline-block', width: '9px', height: '9px', backgroundColor: colors.purple, borderRadius: '2px', marginRight: '5px' }} />Troop drop point</div>
+            </div>
           </div>
         </div>
       ) : null}
