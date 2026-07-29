@@ -36,6 +36,7 @@ func main() {
 	http.HandleFunc("/troop/list", controllers.CORSMiddleware(controllers.ContentGuard(troop.ListMyTroops)))
 	http.HandleFunc("/troop/opponents", controllers.CORSMiddleware(controllers.ContentGuard(controllers.ListOpponents(dbConn))))
 	http.HandleFunc("/troop/scout", controllers.CORSMiddleware(controllers.ContentGuard(controllers.ScoutTarget(dbConn))))
+	http.HandleFunc("/troop/attack", controllers.CORSMiddleware(controllers.ContentGuard(controllers.ExecuteRaid(dbConn))))
 	http.HandleFunc("/leaderboard", controllers.CORSMiddleware(controllers.GetLeaderboard(dbConn)))
 	http.HandleFunc("/battle/replay", controllers.CORSMiddleware(controllers.ContentGuard(controllers.GetBattleReplay(dbConn))))
 

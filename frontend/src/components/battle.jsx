@@ -104,13 +104,9 @@ function Battle({ token, onRaidComplete }) {
         const list = normalizeTroopList(troopData);
         setMyTroops(list);
         const counts = {};
-        const positions = {};
-        list.forEach(function (t, idx) {
-          counts[t.name] = t.quantity;
-          positions[t.name] = { x: (idx * 2) % GRID_SIZE, y: 8 };
-        });
+        list.forEach(function (t) { counts[t.name] = 0; });
         setDeployCounts(counts);
-        setDeployPositions(positions);
+        setDeployPositions({});
         setActivePlacementTroop(list.length > 0 ? list[0].name : '');
 
         setScoutBuildings(Array.isArray(scoutData.buildings) ? scoutData.buildings : []);
