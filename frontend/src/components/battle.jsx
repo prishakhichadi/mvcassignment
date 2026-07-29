@@ -7,10 +7,10 @@ const GAP = 6;
 const PAD = 16;
 const BORDER = 1;
 const GRID_SIZE = 10;
-const FIELD_SIZE = GRID_SIZE * CELL + (GRID_SIZE - 1) * GAP + PAD * 2 + BORDER * 2; 
+const FIELD_SIZE = GRID_SIZE * CELL + (GRID_SIZE - 1) * GAP + PAD * 2 + BORDER * 2;
 function cellCenter(coord) { return PAD + coord * (CELL + GAP) + CELL / 2; }
 
-const BATTLE_DURATION_MS = 6000; 
+const BATTLE_DURATION_MS = 6000;
 
 function Battle({ token, onRaidComplete }) {
   const [loading, setLoading] = useState(false);
@@ -19,18 +19,18 @@ function Battle({ token, onRaidComplete }) {
   const [phase, setPhase] = useState('idle');
   const [myTroops, setMyTroops] = useState([]);
   const [troopsLoading, setTroopsLoading] = useState(false);
-  const [deployCounts, setDeployCounts] = useState({}); 
-  const [buildings, setBuildings] = useState([]); 
-  const [troops, setTroops] = useState([]); 
+  const [deployCounts, setDeployCounts] = useState({});
+  const [buildings, setBuildings] = useState([]);
+  const [troops, setTroops] = useState([]);
   const [timeLeftMs, setTimeLeftMs] = useState(BATTLE_DURATION_MS);
   const [liveDestructionPct, setLiveDestructionPct] = useState(0);
   const [impacts, setImpacts] = useState([]);
 
   const [opponents, setOpponents] = useState([]);
   const [opponentsLoading, setOpponentsLoading] = useState(false);
-  const [selectedEnemy, setSelectedEnemy] = useState(null); 
-  const [scoutBuildings, setScoutBuildings] = useState([]); 
-  const [deployPositions, setDeployPositions] = useState({}); 
+  const [selectedEnemy, setSelectedEnemy] = useState(null);
+  const [scoutBuildings, setScoutBuildings] = useState([]);
+  const [deployPositions, setDeployPositions] = useState({});
   const [activePlacementTroop, setActivePlacementTroop] = useState('');
 
   const timersRef = useRef([]);
@@ -56,20 +56,20 @@ function Battle({ token, onRaidComplete }) {
       method: 'GET',
       headers: { 'Authorization': 'Bearer ' + token }
     })
-    .then(function (res) {
-      if (res.ok === false) throw new Error('Could not load enemy list');
-      return res.json();
-    })
-    .then(function (data) {
-      const list = Array.isArray(data.opponents) ? data.opponents : [];
-      setOpponents(list);
-      setOpponentsLoading(false);
-      setPhase('select-enemy');
-    })
-    .catch(function (err) {
-      setOpponentsLoading(false);
-      setError(err.message);
-    });
+      .then(function (res) {
+        if (res.ok === false) throw new Error('Could not load enemy list');
+        return res.json();
+      })
+      .then(function (data) {
+        const list = Array.isArray(data.opponents) ? data.opponents : [];
+        setOpponents(list);
+        setOpponentsLoading(false);
+        setPhase('select-enemy');
+      })
+      .catch(function (err) {
+        setOpponentsLoading(false);
+        setError(err.message);
+      });
   }
 
 
@@ -104,8 +104,13 @@ function Battle({ token, onRaidComplete }) {
         const list = normalizeTroopList(troopData);
         setMyTroops(list);
         const counts = {};
-        list.forEach(function (t) { counts[t.name] = 0; });
+        const positions = {};
+        list.forEach(function (t, idx) {
+          counts[t.name] = t.quantity;
+          positions[t.name] = { x: (idx * 2) % GRID_SIZE, y: 8 };
+        });
         setDeployCounts(counts);
+        setDeployPositions(positions);
         setActivePlacementTroop(list.length > 0 ? list[0].name : '');
 
         setScoutBuildings(Array.isArray(scoutData.buildings) ? scoutData.buildings : []);
@@ -135,25 +140,23 @@ function Battle({ token, onRaidComplete }) {
   }
 
   function adjustDeploy(name, delta, maxQty) {
+    const current = deployCounts[name] || 0;
+    const next = Math.max(0, Math.min(maxQty, current + delta));
+
     setDeployCounts(function (prev) {
-      const current = prev[name] || 0;
-      const next = Math.max(0, Math.min(maxQty, current + delta));
-
-     
-      
-      setDeployPositions(function (prevPositions) {
-        if (next > 0 && current === 0) {
-          return Object.assign({}, prevPositions, { [name]: prevPositions[name] || { x: 5, y: 5 } });
-        }
-        if (next === 0 && prevPositions[name]) {
-          const copy = Object.assign({}, prevPositions);
-          delete copy[name];
-          return copy;
-        }
-        return prevPositions;
-      });
-
       return Object.assign({}, prev, { [name]: next });
+    });
+
+    setDeployPositions(function (prevPositions) {
+      if (next > 0 && !prevPositions[name]) {
+        return Object.assign({}, prevPositions, { [name]: { x: 5, y: 5 } });
+      }
+      if (next === 0 && prevPositions[name]) {
+        const copy = Object.assign({}, prevPositions);
+        delete copy[name];
+        return copy;
+      }
+      return prevPositions;
     });
   }
 
@@ -194,28 +197,28 @@ function Battle({ token, onRaidComplete }) {
       },
       body: JSON.stringify({ enemy_id: selectedEnemy.player_id, troops: troopsPayload })
     })
-    .then(function (res) {
-      if (res.ok === false) {
-        return res.text().then(function (text) { throw new Error(text || 'Battle failed'); });
-      }
-      return res.json();
-    })
-    .then(function (data) {
-      setLoading(false);
-      setBattleResult(data);
-      setupBattlefield(data);
-    })
-    .catch(function (err) {
-      setLoading(false);
-      setError(err.message);
-    });
+      .then(function (res) {
+        if (res.ok === false) {
+          return res.text().then(function (text) { throw new Error(text || 'Battle failed'); });
+        }
+        return res.json();
+      })
+      .then(function (data) {
+        setLoading(false);
+        setBattleResult(data);
+        setupBattlefield(data);
+      })
+      .catch(function (err) {
+        setLoading(false);
+        setError(err.message);
+      });
   }
 
 
   function setupBattlefield(data) {
     const rawBuildings = (data.enemy_buildings || []);
 
-    
+
     const placed = rawBuildings.map(function (b, idx) {
       const maxHp = b.max_hp || 1;
       return {
@@ -224,7 +227,7 @@ function Battle({ token, onRaidComplete }) {
         pxX: cellCenter(b.x),
         pxY: cellCenter(b.y),
         maxHp: maxHp,
-        hp: maxHp, 
+        hp: maxHp,
         finalHp: b.hp != null ? b.hp : 0,
         destroyed: false
       };
@@ -244,7 +247,7 @@ function Battle({ token, onRaidComplete }) {
       deployedGroups.forEach(function (d) {
         const gx = d.x != null ? d.x : 5;
         const gy = d.y != null ? d.y : 9;
-        
+
         if (initialTroops.length < 8) {
           initialTroops.push({
             id: 'troop-' + idCounter,
@@ -696,7 +699,7 @@ function Battle({ token, onRaidComplete }) {
             boxSizing: 'border-box'
           }}>
             {
-          }
+            }
             <div style={{
               position: 'absolute',
               left: PAD + 'px', top: PAD + 'px', right: PAD + 'px', bottom: PAD + 'px',

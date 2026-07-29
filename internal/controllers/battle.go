@@ -342,11 +342,6 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 			return
 		}
 
-		if err := models.DestroyBuildings(tx, destroyedBuildingIDs); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
 		record := models.BattleRecord{
 			AttackerID:   attackerID,
 			DefenderID:   target.PlayerID,
