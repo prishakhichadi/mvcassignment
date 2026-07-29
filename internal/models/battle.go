@@ -15,6 +15,7 @@ type RaidTarget struct {
 }
 
 type DefBuildingRow struct {
+	ID        string `db:"id"`
 	Name      string `db:"name"`
 	X         int    `db:"x"`
 	Y         int    `db:"y"`
@@ -76,11 +77,23 @@ func GetScoutedBuildings(db *sqlx.DB, townID string) ([]types.ScoutBuildingOut, 
 func GetDefenderBuildings(tx *sqlx.Tx, townID string) ([]DefBuildingRow, error) {
 	var rows []DefBuildingRow
 	err := tx.Select(&rows, `
-		SELECT bi.name, tb.x, tb.y, tb.level, bi.level_info
+		SELECT tb.id, bi.name, tb.x, tb.y, tb.level, bi.level_info
 		FROM town_buildings tb
 		JOIN building_info bi ON bi.id = tb.building_info_id
 		WHERE tb.town_id = $1`, townID)
 	return rows, err
+}
+
+func DestroyBuildings(tx *sqlx.Tx, buildingIDs []string) error {
+	if len(buildingIDs) == 0 {
+		return nil
+	}
+	query, args, err := sqlx.In(`DELETE FROM town_buildings WHERE id IN (?)`, buildingIDs)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(tx.Rebind(query), args...)
+	return err
 }
 
 type BattleRecord struct {

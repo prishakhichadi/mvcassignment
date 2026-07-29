@@ -222,6 +222,7 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 		}
 
 		type liveBuilding struct {
+			ID    string
 			Name  string
 			X, Y  int
 			Level int
@@ -235,12 +236,11 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 			stats, _ := models.ParseLevelInfo(b.LevelInfo)
 			maxHP := stats.Int(b.Level, "hp")
 			liveBuildings = append(liveBuildings, liveBuilding{
-				Name: b.Name, X: b.X, Y: b.Y, Level: b.Level, MaxHP: maxHP, HP: float64(maxHP),
+				ID: b.ID, Name: b.Name, X: b.X, Y: b.Y, Level: b.Level, MaxHP: maxHP, HP: float64(maxHP),
 			})
 			totalDefenderHP += float64(maxHP)
 		}
 
-		// no buildings placed at all-full undefended win
 		if len(liveBuildings) == 0 || totalDefenderHP == 0 {
 			liveBuildings = nil
 		}
@@ -264,7 +264,7 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 					}
 				}
 				if nearest == nil {
-					break
+					break // nothing left to destroy
 				}
 				if damageBudget >= nearest.HP {
 					damageBudget -= nearest.HP
@@ -277,9 +277,11 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 		}
 
 		buildingsDestroyed := 0
+		var destroyedBuildingIDs []string
 		for i := range liveBuildings {
 			if liveBuildings[i].HP <= 0 {
 				buildingsDestroyed++
+				destroyedBuildingIDs = append(destroyedBuildingIDs, liveBuildings[i].ID)
 			}
 		}
 
@@ -336,6 +338,11 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 			}
 		}
 		if err := models.PruneEmptyTroops(tx, attackerID); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if err := models.DestroyBuildings(tx, destroyedBuildingIDs); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}

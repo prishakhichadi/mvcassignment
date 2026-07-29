@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { colors, BuildingIcon, TroopIcon, TROOP_DEFS, IconGold, IconElixir, IconStar, IconCrosshair, IconSwords } from './theme';
 
-const FIELD_W = 560;
-const FIELD_H = 560;
-const BATTLE_DURATION_MS = 6000;
 
+const CELL = 52;
+const GAP = 6;
+const PAD = 16;
+const BORDER = 1;
 const GRID_SIZE = 10;
+const FIELD_SIZE = GRID_SIZE * CELL + (GRID_SIZE - 1) * GAP + PAD * 2 + BORDER * 2; 
+function cellCenter(coord) { return PAD + coord * (CELL + GAP) + CELL / 2; }
+
+const BATTLE_DURATION_MS = 6000; 
 
 function Battle({ token, onRaidComplete }) {
   const [loading, setLoading] = useState(false);
@@ -19,8 +24,7 @@ function Battle({ token, onRaidComplete }) {
   const [troops, setTroops] = useState([]); 
   const [timeLeftMs, setTimeLeftMs] = useState(BATTLE_DURATION_MS);
   const [liveDestructionPct, setLiveDestructionPct] = useState(0);
-  const [impacts, setImpacts] = useState([]); 
-
+  const [impacts, setImpacts] = useState([]);
 
   const [opponents, setOpponents] = useState([]);
   const [opponentsLoading, setOpponentsLoading] = useState(false);
@@ -135,6 +139,7 @@ function Battle({ token, onRaidComplete }) {
       const current = prev[name] || 0;
       const next = Math.max(0, Math.min(maxQty, current + delta));
 
+     
       
       setDeployPositions(function (prevPositions) {
         if (next > 0 && current === 0) {
@@ -212,14 +217,12 @@ function Battle({ token, onRaidComplete }) {
 
     
     const placed = rawBuildings.map(function (b, idx) {
-      const xPct = Math.min(0.94, Math.max(0.06, (b.x + 0.5) / 10));
-      const yPct = Math.min(0.94, Math.max(0.06, (b.y + 0.5) / 10));
       const maxHp = b.max_hp || 1;
       return {
         id: b.x + '-' + b.y + '-' + idx,
         name: b.name,
-        xPct: xPct,
-        yPct: yPct,
+        pxX: cellCenter(b.x),
+        pxY: cellCenter(b.y),
         maxHp: maxHp,
         hp: maxHp, 
         finalHp: b.hp != null ? b.hp : 0,
@@ -241,16 +244,13 @@ function Battle({ token, onRaidComplete }) {
       deployedGroups.forEach(function (d) {
         const gx = d.x != null ? d.x : 5;
         const gy = d.y != null ? d.y : 9;
-        const xPct = Math.min(0.94, Math.max(0.06, (gx + 0.5) / 10));
-        const yPct = Math.min(0.94, Math.max(0.06, (gy + 0.5) / 10));
-
         
         if (initialTroops.length < 8) {
           initialTroops.push({
             id: 'troop-' + idCounter,
             kind: d.troop_name,
-            xPct: xPct,
-            yPct: yPct,
+            pxX: cellCenter(gx),
+            pxY: cellCenter(gy),
             attacking: false
           });
           idCounter += 1;
@@ -264,8 +264,8 @@ function Battle({ token, onRaidComplete }) {
         initialTroops.push({
           id: 'troop-' + i,
           kind: kind,
-          xPct: 0.15 + (i / spawnCount) * 0.7,
-          yPct: 0.96,
+          pxX: cellCenter(1 + (i / spawnCount) * 8),
+          pxY: cellCenter(9),
           attacking: false
         });
       }
@@ -314,8 +314,8 @@ function Battle({ token, onRaidComplete }) {
         return prev.map(function (t, i) {
           if (i < 3) {
             return Object.assign({}, t, {
-              xPct: target.xPct + (Math.random() - 0.5) * 0.06,
-              yPct: target.yPct + 0.05 + (Math.random() - 0.5) * 0.04,
+              pxX: target.pxX + (Math.random() - 0.5) * 30,
+              pxY: target.pxY + 24 + (Math.random() - 0.5) * 20,
               attacking: false
             });
           }
@@ -329,7 +329,7 @@ function Battle({ token, onRaidComplete }) {
         });
 
         const impactId = 'impact-' + targetId + '-' + step;
-        setImpacts(function (prev) { return prev.concat([{ id: impactId, xPct: target.xPct, yPct: target.yPct }]); });
+        setImpacts(function (prev) { return prev.concat([{ id: impactId, pxX: target.pxX, pxY: target.pxY }]); });
         const clearImpact = setTimeout(function () {
           setImpacts(function (prev) { return prev.filter(function (im) { return im.id !== impactId; }); });
         }, 450);
@@ -382,7 +382,7 @@ function Battle({ token, onRaidComplete }) {
   const secondsLeft = Math.ceil(timeLeftMs / 1000);
 
   return (
-    <div style={{ padding: '24px', color: colors.textMain }}>
+    <div style={{ padding: '24px', color: colors.textMain, width: '100%', boxSizing: 'border-box' }}>
       <h2 style={{ fontSize: '20px', margin: '0 0 4px 0' }}>Raid an enemy village</h2>
       <p style={{ color: colors.textDim, fontSize: '13px', marginBottom: '20px' }}>
         Pick your enemy, choose your troops, drop them exactly where you want on the grid, then deploy.
@@ -440,7 +440,8 @@ function Battle({ token, onRaidComplete }) {
           border: '1px solid ' + colors.border,
           borderRadius: '14px',
           padding: '20px',
-          maxWidth: '480px'
+          width: '100%',
+          boxSizing: 'border-box'
         }}>
           <h3 style={{ margin: '0 0 4px 0', fontSize: '15px' }}>Choose your enemy</h3>
           <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: colors.textDim }}>
@@ -452,7 +453,12 @@ function Battle({ token, onRaidComplete }) {
               No other villages to raid right now.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', maxHeight: '340px', overflowY: 'auto' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+              gap: '10px',
+              marginBottom: '16px'
+            }}>
               {opponents.map(function (o) {
                 return (
                   <button
@@ -496,23 +502,31 @@ function Battle({ token, onRaidComplete }) {
           border: '1px solid ' + colors.border,
           borderRadius: '14px',
           padding: '20px',
-          maxWidth: '760px',
+          width: '100%',
+          boxSizing: 'border-box',
           display: 'flex',
-          gap: '20px',
-          flexWrap: 'wrap'
+          flexDirection: 'column',
+          gap: '20px'
         }}>
-          <div style={{ flex: '1 1 320px', minWidth: '280px' }}>
+          <div>
             <h3 style={{ margin: '0 0 4px 0', fontSize: '15px' }}>
               Plan your attack on {selectedEnemy ? selectedEnemy.username : 'this village'}
             </h3>
-            
+            <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: colors.textDim }}>
+              Choose how many of each troop to send.
+            </p>
 
             {myTroops.length === 0 ? (
               <div style={{ backgroundColor: colors.bgDark, borderRadius: '8px', padding: '20px', textAlign: 'center', color: colors.textDim, fontSize: '13px' }}>
                 You have no trained troops. Train some first.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                gap: '8px',
+                marginBottom: '16px'
+              }}>
                 {myTroops.map(function (t) {
                   const count = deployCounts[t.name] || 0;
                   const pos = deployPositions[t.name];
@@ -576,19 +590,20 @@ function Battle({ token, onRaidComplete }) {
             </div>
           </div>
 
-          <div style={{ flex: '0 0 auto' }}>
-            <div style={{ fontSize: '11px', color: colors.textDim, marginBottom: '6px' }}>
-              {activePlacementTroop ? 'Tap a tile to drop ' + activePlacementTroop : 'Pick a troop to place it'}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ fontSize: '11px', color: colors.textDim, marginBottom: '10px' }}>
+              {activePlacementTroop ? 'Tap a tile to drop ' + activePlacementTroop : 'Pick a troop above to place it'}
             </div>
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(' + GRID_SIZE + ', 28px)',
-              gridTemplateRows: 'repeat(' + GRID_SIZE + ', 28px)',
-              gap: '3px',
-              backgroundColor: colors.bgDark,
-              padding: '10px',
+              gridTemplateColumns: 'repeat(' + GRID_SIZE + ', 52px)',
+              gridTemplateRows: 'repeat(' + GRID_SIZE + ', 52px)',
+              gap: '6px',
+              backgroundColor: '#252740',
+              padding: '16px',
               borderRadius: '8px',
-              border: '1px solid ' + colors.border,
+              border: '1px solid #3d3f6b',
+              boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
               width: 'fit-content'
             }}>
               {Array.from({ length: GRID_SIZE * GRID_SIZE }).map(function (_, idx) {
@@ -599,29 +614,39 @@ function Battle({ token, onRaidComplete }) {
                   const p = deployPositions[name];
                   return p && p.x === gx && p.y === gy && (deployCounts[name] || 0) > 0;
                 });
-                let bg = 'rgba(255,255,255,0.04)';
-                if (building) bg = colors.buildingFill;
-                if (troopsHere.length > 0) bg = colors.purple;
+
+                let tileBg = '#2d3722';
+                let borderStyle = '1px solid #475931';
+                if (building) {
+                  if (building.name === 'Cannon') { tileBg = '#5c1d2e'; borderStyle = '1px solid #8c2e46'; }
+                  else if (building.name === 'TownHall') { tileBg = '#1a3a5c'; borderStyle = '1px solid #2a5c8f'; }
+                  else if (building.name === 'Barracks') { tileBg = '#3d1a5c'; borderStyle = '1px solid #622a8f'; }
+                  else { tileBg = colors.buildingFill; borderStyle = '1px solid rgba(0,0,0,0.35)'; }
+                }
+                if (troopsHere.length > 0) { tileBg = colors.purple; borderStyle = '1px solid ' + colors.purpleLight; }
+
                 return (
                   <div
                     key={gx + '-' + gy}
                     title={building ? building.name : gx + ',' + gy}
                     onClick={function () { handlePlacementGridClick(gx, gy); }}
                     style={{
-                      width: '28px', height: '28px', borderRadius: '4px',
-                      backgroundColor: bg,
-                      border: '1px solid rgba(255,255,255,0.08)',
+                      width: '52px', height: '52px', borderRadius: '4px',
+                      backgroundColor: tileBg,
+                      border: borderStyle,
                       cursor: activePlacementTroop ? 'pointer' : 'default',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'background 0.2s'
                     }}
                   >
-                    {building ? <BuildingIcon name={building.name} size={14} color="#fff" /> : null}
-                    {troopsHere.length > 0 ? <TroopIcon name={troopsHere[0]} size={13} color="#fff" /> : null}
+                    {building ? <BuildingIcon name={building.name} size={20} color="#fff" /> : null}
+                    {troopsHere.length > 0 ? <TroopIcon name={troopsHere[0]} size={18} color="#fff" /> : null}
                   </div>
                 );
               })}
             </div>
-            <div style={{ fontSize: '10px', color: colors.textDim, marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <div style={{ fontSize: '10px', color: colors.textDim, marginTop: '10px', display: 'flex', gap: '16px' }}>
+              <div><span style={{ display: 'inline-block', width: '9px', height: '9px', backgroundColor: '#2d3722', border: '1px solid #475931', borderRadius: '2px', marginRight: '5px' }} />Empty tile</div>
               <div><span style={{ display: 'inline-block', width: '9px', height: '9px', backgroundColor: colors.buildingFill, borderRadius: '2px', marginRight: '5px' }} />Scouted building</div>
               <div><span style={{ display: 'inline-block', width: '9px', height: '9px', backgroundColor: colors.purple, borderRadius: '2px', marginRight: '5px' }} />Troop drop point</div>
             </div>
@@ -630,7 +655,7 @@ function Battle({ token, onRaidComplete }) {
       ) : null}
 
       {(phase === 'fighting' || phase === 'done') ? (
-        <div style={{ maxWidth: FIELD_W + 'px' }}>
+        <div style={{ maxWidth: FIELD_SIZE + 'px' }}>
 
           {showHud ? (
             <div style={{
@@ -662,18 +687,34 @@ function Battle({ token, onRaidComplete }) {
 
           <div style={{
             position: 'relative',
-            width: FIELD_W + 'px',
-            height: FIELD_H + 'px',
-            borderRadius: '16px',
-            overflow: 'hidden',
-            background: 'radial-gradient(circle at 50% 38%, ' + colors.grass + ' 0%, ' + colors.grassDark + ' 70%)',
-            border: '2px solid ' + colors.border,
-            boxShadow: 'inset 0 0 60px rgba(0,0,0,0.35)'
+            width: FIELD_SIZE + 'px',
+            height: FIELD_SIZE + 'px',
+            borderRadius: '8px',
+            backgroundColor: '#252740',
+            border: '1px solid #3d3f6b',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+            boxSizing: 'border-box'
           }}>
+            {
+          }
             <div style={{
-              position: 'absolute', left: '12%', top: '12%', width: '76%', height: '76%',
-              border: '2px dashed rgba(255,255,255,0.07)', borderRadius: '50%'
-            }} />
+              position: 'absolute',
+              left: PAD + 'px', top: PAD + 'px', right: PAD + 'px', bottom: PAD + 'px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(' + GRID_SIZE + ', ' + CELL + 'px)',
+              gridTemplateRows: 'repeat(' + GRID_SIZE + ', ' + CELL + 'px)',
+              gap: GAP + 'px'
+            }}>
+              {Array.from({ length: GRID_SIZE * GRID_SIZE }).map(function (_, idx) {
+                return (
+                  <div key={idx} style={{
+                    backgroundColor: '#2d3722',
+                    border: '1px solid #475931',
+                    borderRadius: '4px'
+                  }} />
+                );
+              })}
+            </div>
 
             {buildings.length === 0 ? (
               <div style={{
@@ -691,8 +732,8 @@ function Battle({ token, onRaidComplete }) {
                   key={b.id}
                   style={{
                     position: 'absolute',
-                    left: (b.xPct * FIELD_W - 26) + 'px',
-                    top: (b.yPct * FIELD_H - 26) + 'px',
+                    left: (b.pxX - 26) + 'px',
+                    top: (b.pxY - 26) + 'px',
                     width: '52px',
                     textAlign: 'center',
                     transition: 'opacity 0.4s, transform 0.4s',
@@ -729,8 +770,8 @@ function Battle({ token, onRaidComplete }) {
               return (
                 <div key={im.id} style={{
                   position: 'absolute',
-                  left: (im.xPct * FIELD_W - 16) + 'px',
-                  top: (im.yPct * FIELD_H - 16) + 'px',
+                  left: (im.pxX - 16) + 'px',
+                  top: (im.pxY - 16) + 'px',
                   width: '32px',
                   height: '32px',
                   zIndex: 4,
@@ -750,8 +791,8 @@ function Battle({ token, onRaidComplete }) {
                   key={t.id}
                   style={{
                     position: 'absolute',
-                    left: (t.xPct * FIELD_W - 11) + 'px',
-                    top: (t.yPct * FIELD_H - 11) + 'px',
+                    left: (t.pxX - 11) + 'px',
+                    top: (t.pxY - 11) + 'px',
                     width: '22px',
                     height: '22px',
                     borderRadius: '50%',
