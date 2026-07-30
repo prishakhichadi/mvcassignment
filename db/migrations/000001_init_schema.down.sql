@@ -26,3 +26,6 @@ DROP TABLE IF EXISTS "players";
 DROP TYPE IF EXISTS "battle_outcome";
 DROP TYPE IF EXISTS "building_type";
 DROP TYPE IF EXISTS "achievement_type";
+
+ALTER TABLE "town" DROP COLUMN IF EXISTS "shield_expires_at";
+ALTER TABLE "town_buildings" DROP COLUMN IF EXISTS "last_collected_at";

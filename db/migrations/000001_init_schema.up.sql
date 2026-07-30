@@ -129,3 +129,6 @@ CHECK (gold >= 0);
 ALTER TABLE resources
 ADD CONSTRAINT elixir_non_negative
 CHECK (elixir >= 0);
+
+ALTER TABLE "town_buildings" ADD COLUMN "last_collected_at" TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT NOW();
+ALTER TABLE "town" ADD COLUMN "shield_expires_at" TIMESTAMP(0) WITHOUT TIME ZONE;
