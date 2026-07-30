@@ -130,6 +130,24 @@ func seedBuildings(db *sqlx.DB) {
 				"4": map[string]interface{}{"hp": 2100, "capacity_gold": 10000},
 			},
 		},
+		{
+			Name: "Gold Mine", TownLevel: 1, Type: "resource",
+			LevelInfo: map[string]interface{}{
+				"1": map[string]interface{}{"hp": 400, "rate_per_hour": 200, "capacity": 1500, "cost_gold": 150},
+				"2": map[string]interface{}{"hp": 440, "rate_per_hour": 300, "capacity": 3000, "cost_gold": 400},
+				"3": map[string]interface{}{"hp": 480, "rate_per_hour": 420, "capacity": 5000, "cost_gold": 900},
+				"4": map[string]interface{}{"hp": 520, "rate_per_hour": 560, "capacity": 8000, "cost_gold": 1800},
+			},
+		},
+		{
+			Name: "Elixir Collector", TownLevel: 1, Type: "resource",
+			LevelInfo: map[string]interface{}{
+				"1": map[string]interface{}{"hp": 400, "rate_per_hour": 200, "capacity": 1500, "cost_gold": 150},
+				"2": map[string]interface{}{"hp": 440, "rate_per_hour": 300, "capacity": 3000, "cost_gold": 400},
+				"3": map[string]interface{}{"hp": 480, "rate_per_hour": 420, "capacity": 5000, "cost_gold": 900},
+				"4": map[string]interface{}{"hp": 520, "rate_per_hour": 560, "capacity": 8000, "cost_gold": 1800},
+			},
+		},
 	}
 
 	for _, b := range buildings {

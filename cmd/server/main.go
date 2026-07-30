@@ -30,6 +30,7 @@ func main() {
 	http.HandleFunc("/player/profile", controllers.CORSMiddleware(controllers.ContentGuard(player.GetProfile)))
 	http.HandleFunc("/town/layout", controllers.CORSMiddleware(controllers.ContentGuard(town.GetLayout)))
 	http.HandleFunc("/town/place", controllers.CORSMiddleware(controllers.ContentGuard(town.PlaceStructure)))
+	//http.HandleFunc("/town/collect", controllers.CORSMiddleware(controllers.ContentGuard(town.CollectResources)))
 	http.HandleFunc("/town/hall", controllers.CORSMiddleware(controllers.ContentGuard(town.GetTownHallInfo)))
 	http.HandleFunc("/town/hall/upgrade", controllers.CORSMiddleware(controllers.ContentGuard(town.UpgradeTownHall)))
 	http.HandleFunc("/troop/train", controllers.CORSMiddleware(controllers.ContentGuard(troop.TrainUnitsInstant)))

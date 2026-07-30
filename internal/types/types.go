@@ -1,5 +1,7 @@
 package types
 
+import "encoding/json"
+
 type AuthRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -40,6 +42,7 @@ type OpponentOut struct {
 	TownLevel   int    `db:"town_level" json:"town_level"`
 	TrophyCount int    `db:"trophy_count" json:"trophy_count"`
 	Buildings   int    `db:"buildings" json:"buildings_count"`
+	Shielded    bool   `db:"shielded" json:"shielded"`
 }
 
 type ScoutBuildingOut struct {
@@ -49,6 +52,7 @@ type ScoutBuildingOut struct {
 }
 
 type EnemyBuildingOut struct {
+	ID        string `json:"id"`
 	Name      string `json:"name"`
 	X         int    `json:"x"`
 	Y         int    `json:"y"`
@@ -67,16 +71,16 @@ type LeaderboardEntry struct {
 }
 
 type BattleReplay struct {
-	ID              string      `db:"id" json:"battle_id"`
-	AttackerID      string      `db:"attacker_id" json:"attacker_id"`
-	DefenderID      string      `db:"defender_id" json:"defender_id"`
-	Stars           int         `db:"stars" json:"stars"`
-	Outcome         string      `db:"outcome" json:"outcome"`
-	GoldLooted      int64       `db:"gold_looted" json:"gold_looted"`
-	ElixirLooted    int64       `db:"elixir_looted" json:"elixir_looted"`
-	DestrPct        int         `db:"destr_pct" json:"destruction_pct"`
-	Log             interface{} `db:"log" json:"battle_log"`
-	DefenseSnapshot interface{} `db:"defense_snapshot" json:"defense_snapshot"`
+	ID              string          `db:"id" json:"battle_id"`
+	AttackerID      string          `db:"attacker_id" json:"attacker_id"`
+	DefenderID      string          `db:"defender_id" json:"defender_id"`
+	Stars           int             `db:"stars" json:"stars"`
+	Outcome         string          `db:"outcome" json:"outcome"`
+	GoldLooted      int64           `db:"gold_looted" json:"gold_looted"`
+	ElixirLooted    int64           `db:"elixir_looted" json:"elixir_looted"`
+	DestrPct        int             `db:"destr_pct" json:"destruction_pct"`
+	Log             json.RawMessage `db:"log" json:"battle_log"`
+	DefenseSnapshot json.RawMessage `db:"defense_snapshot" json:"defense_snapshot"`
 }
 
 type ProfileOut struct {
@@ -98,12 +102,15 @@ type PlayerStatsOut struct {
 }
 
 type TownLayoutOut struct {
-	PlayerID  string         `json:"player_id"`
-	TownID    string         `json:"town_id"`
-	TownLevel int            `json:"town_level"`
-	Resources ResourcesOut   `json:"resources"`
-	Stats     PlayerStatsOut `json:"stats"`
-	Grid      [][]string     `json:"grid"`
+	PlayerID        string         `json:"player_id"`
+	TownID          string         `json:"town_id"`
+	TownLevel       int            `json:"town_level"`
+	Resources       ResourcesOut   `json:"resources"`
+	Stats           PlayerStatsOut `json:"stats"`
+	Grid            [][]string     `json:"grid"`
+	PendingGold     int64          `json:"pending_gold"`
+	PendingElixir   int64          `json:"pending_elixir"`
+	ShieldExpiresAt *string        `json:"shield_expires_at,omitempty"`
 }
 
 type TownHallInfoOut struct {
