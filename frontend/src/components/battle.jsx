@@ -72,7 +72,6 @@ function Battle({ token, onRaidComplete }) {
     });
   }
 
-  // ---- step 2: player picks a specific enemy -> load army + scout their base layout ----
   function handlePickEnemy(enemy) {
     setError('');
     setSelectedEnemy(enemy);
@@ -139,9 +138,7 @@ function Battle({ token, onRaidComplete }) {
       const current = prev[name] || 0;
       const next = Math.max(0, Math.min(maxQty, current + delta));
 
-      // give newly-added troop groups a sane default drop point (center of
-      // the grid) so "deploy" always works even if the player never touches
-      // the grid for that troop; going back to 0 clears it.
+      
       setDeployPositions(function (prevPositions) {
         if (next > 0 && current === 0) {
           return Object.assign({}, prevPositions, { [name]: prevPositions[name] || { x: 5, y: 5 } });
@@ -245,9 +242,7 @@ function Battle({ token, onRaidComplete }) {
       deployedGroups.forEach(function (d) {
         const gx = d.x != null ? d.x : 5;
         const gy = d.y != null ? d.y : 9;
-        // one visible marker per deployed troop group, dropped right where
-        // the player placed it on the grid (up to 8 markers total so the
-        // battlefield doesn't get too cluttered)
+
         if (initialTroops.length < 8) {
           initialTroops.push({
             id: 'troop-' + idCounter,

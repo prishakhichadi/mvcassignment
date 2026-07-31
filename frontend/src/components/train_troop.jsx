@@ -175,9 +175,7 @@ function TrainTroop({ token, elixir, onTrainingComplete }) {
             />
           </div>
 
-          <div style={{ fontSize: '13px', color: colors.textDim, marginBottom: '16px' }}>
-            Total cost: <span style={{ color: colors.elixir, fontWeight: 'bold' }}>{(troopCosts[troopName] * (parseInt(qty) || 0)).toLocaleString()} elixir</span>
-          </div>
+          
 
           <button
             type="submit"
