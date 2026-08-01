@@ -1,7 +1,38 @@
 import React from 'react';
-import { colors } from './ui';
 
-export { colors };
+export const colors = {
+  // Earthy Green Dark Palette (Replaced purples/blues)
+  bgDark: '#0d140b',
+  bgCard: '#161f13',
+  bgCardRaised: '#1f2b1c',
+  border: '#2f3d2b',
+  
+  textMain: '#e8ece6',
+  textDim: '#8b9b85',
+  
+  // Tactical Accent Greens
+  purple: '#386631',       // Remapped legacy purple references to tactical green
+  purpleLight: '#528e48',  // Remapped light purple to vibrant foliage green
+  
+  gold: '#e8b339',
+  goldDim: '#7a6228',
+  elixir: '#b06fe0',
+  elixirDim: '#5a3870',
+  danger: '#e8615c',
+  dangerDim: '#3d1f1f',
+  success: '#5cd97a',
+  successDim: '#1a3d22',
+
+  // Grass Grid Palette
+  grassLight: '#4e7a3e',
+  grassDark: '#446e35',
+  grassBorder: '#395c2b',
+  grassPlaced: '#325225',
+  buildingFill: '#7d6a4a',
+  hpBg: '#2a1414',
+  hpFill: '#5cd97a',
+  hpFillLow: '#e8615c',
+};
 
 export function IconGold({ size = 16, color = colors.gold }) {
   return (
@@ -130,6 +161,24 @@ export const BUILDING_DEFS = [
       { level: 4, hp: 1100, dps: 50, cost: 32000 },
     ],
   },
+  {
+    key: 'Gold Mine', label: 'Gold Mine', icon: 'goldMine', townLevelRequired: 1,
+    levels: [
+      { level: 1, hp: 400, ratePerHour: 200, capacity: 1500, cost: 150 },
+      { level: 2, hp: 440, ratePerHour: 300, capacity: 3000, cost: 400 },
+      { level: 3, hp: 480, ratePerHour: 420, capacity: 5000, cost: 900 },
+      { level: 4, hp: 520, ratePerHour: 560, capacity: 8000, cost: 1800 },
+    ],
+  },
+  {
+    key: 'Elixir Collector', label: 'Elixir Collector', icon: 'elixirCollector', townLevelRequired: 1,
+    levels: [
+      { level: 1, hp: 400, ratePerHour: 200, capacity: 1500, cost: 150 },
+      { level: 2, hp: 440, ratePerHour: 300, capacity: 3000, cost: 400 },
+      { level: 3, hp: 480, ratePerHour: 420, capacity: 5000, cost: 900 },
+      { level: 4, hp: 520, ratePerHour: 560, capacity: 8000, cost: 1800 },
+    ],
+  },
 ];
 
 export const TOWN_HALL_LEVELS = [
@@ -197,35 +246,41 @@ function BuildingGlyph({ kind, size = 20, color = '#fff' }) {
   if (kind === 'townHall') {
     return (
       <svg {...common}>
-        <rect x="4" y="11" width="16" height="9" fill={color} opacity="0.9" />
-        <path d="M2 11 12 4l10 7" stroke={color} strokeWidth="1.8" fill="none" strokeLinejoin="round" />
-        <rect x="10" y="14" width="4" height="6" fill={colors.bgDark} opacity="0.5" />
+        <path d="M2 11 12 3l10 8" fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" />
+        <rect x="4" y="11" width="16" height="10" fill={color} />
+        <rect x="10" y="15" width="4" height="6" fill={colors.bgDark} opacity="0.5" />
+        <path d="M12 3v-2M12 1l2 1-2 1Z" fill={color} />
       </svg>
     );
   }
   if (kind === 'cannon') {
     return (
       <svg {...common}>
-        <circle cx="12" cy="16" r="6" fill={color} opacity="0.9" />
-        <rect x="11" y="3" width="4" height="13" rx="1.5" fill={color} />
+        <circle cx="12" cy="17" r="6.5" fill={color} opacity="0.9" />
+        <rect x="10.5" y="2" width="3" height="15" rx="1.2" fill={color} transform="rotate(-8 12 17)" />
+        <rect x="6" y="21" width="12" height="2.2" rx="1" fill={color} opacity="0.9" />
       </svg>
     );
   }
   if (kind === 'archerTower') {
     return (
       <svg {...common}>
-        <rect x="8" y="9" width="8" height="12" fill={color} opacity="0.9" />
-        <path d="M6 9h12l-2-6h-8Z" fill={color} />
-        <rect x="10.5" y="13" width="3" height="4" fill={colors.bgDark} opacity="0.5" />
+        <path d="M7 9h10l-1.5-6h-7Z" fill={color} />
+        <rect x="7.5" y="9" width="9" height="12" fill={color} opacity="0.9" />
+        <rect x="6" y="21" width="12" height="2" fill={color} />
+        <rect x="6.5" y="4.5" width="2" height="2" fill={colors.bgDark} opacity="0.5" />
+        <rect x="15.5" y="4.5" width="2" height="2" fill={colors.bgDark} opacity="0.5" />
+        <rect x="10.5" y="13" width="3" height="4.5" rx="1" fill={colors.bgDark} opacity="0.5" />
       </svg>
     );
   }
   if (kind === 'airDefense') {
     return (
       <svg {...common}>
-        <rect x="6" y="14" width="12" height="7" fill={color} opacity="0.9" />
-        <rect x="11" y="3" width="2.4" height="13" rx="1" fill={color} transform="rotate(-20 12 9)" />
-        <circle cx="12" cy="14" r="2.4" fill={colors.bgDark} opacity="0.5" />
+        <rect x="5" y="17" width="14" height="6" rx="1" fill={color} opacity="0.9" />
+        <rect x="10.5" y="4" width="3" height="14" rx="1.2" fill={color} transform="rotate(-25 12 11)" />
+        <circle cx="12" cy="20" r="2.4" fill={colors.bgDark} opacity="0.5" />
+        <circle cx="16.5" cy="6.5" r="2.6" fill={color} opacity="0.85" />
       </svg>
     );
   }
@@ -245,6 +300,24 @@ function BuildingGlyph({ kind, size = 20, color = '#fff' }) {
       </svg>
     );
   }
+  if (kind === 'goldMine') {
+    return (
+      <svg {...common}>
+        <path d="M4 21 8 10h8l4 11Z" fill={color} opacity="0.9" />
+        <rect x="10" y="1" width="2.6" height="8" rx="1" fill={color} transform="rotate(30 12 5)" />
+        <rect x="6.5" y="6" width="6.5" height="2" rx="1" fill={color} transform="rotate(30 12 5)" />
+        <circle cx="12" cy="16" r="2.6" fill={colors.bgDark} opacity="0.5" />
+      </svg>
+    );
+  }
+  if (kind === 'elixirCollector') {
+    return (
+      <svg {...common}>
+        <path d="M12 2 18 9v6a6 6 0 0 1-12 0V9Z" fill={color} opacity="0.9" />
+        <path d="M8.5 13.5a3.5 3.5 0 0 0 7 0" stroke={colors.bgDark} strokeWidth="1.4" opacity="0.5" fill="none" />
+      </svg>
+    );
+  }
   return (
     <svg {...common}>
       <rect x="5" y="7" width="14" height="13" fill={color} opacity="0.85" />
@@ -258,45 +331,52 @@ function TroopGlyph({ kind, size = 18, color = '#fff' }) {
   if (kind === 'barbarian') {
     return (
       <svg {...common}>
-        <circle cx="12" cy="6" r="3" fill={color} />
-        <path d="M7 21v-5a5 5 0 0 1 10 0v5" fill={color} opacity="0.9" />
-        <path d="M16 10l5-4-1.5-1.5L15 9Z" fill={color} />
+        <circle cx="11" cy="5" r="3" fill={color} />
+        <path d="M6.5 21v-6a4.5 4.5 0 0 1 9 0v6" fill={color} />
+        <path d="M16 12l6-5-1.6-1.6L14.5 11Z" fill={color} />
+        <rect x="14.2" y="4.5" width="7" height="1.8" rx="0.9" fill={color} transform="rotate(45 17.7 5.4)" />
       </svg>
     );
   }
   if (kind === 'archer') {
     return (
       <svg {...common}>
-        <circle cx="12" cy="6" r="3" fill={color} />
-        <path d="M7 21v-5a5 5 0 0 1 10 0v5" fill={color} opacity="0.9" />
-        <path d="M16 8a5 5 0 0 1 0 7" stroke={color} strokeWidth="1.4" fill="none" />
+        <circle cx="10" cy="5" r="3" fill={color} />
+        <path d="M6 21v-6a4.5 4.5 0 0 1 8 0v6" fill={color} />
+        <path d="M15 3a8 8 0 0 1 0 12" stroke={color} strokeWidth="1.4" fill="none" />
+        <path d="M15 3v12" stroke={color} strokeWidth="1" fill="none" />
+        <path d="M13.5 9h4" stroke={color} strokeWidth="1" />
       </svg>
     );
   }
   if (kind === 'goblin') {
     return (
       <svg {...common}>
-        <circle cx="12" cy="7" r="3.2" fill={color} />
-        <path d="M9.5 5.5 8 3M14.5 5.5 16 3" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
-        <path d="M8 21v-4.5a4.5 4.5 0 0 1 8 0V21" fill={color} opacity="0.9" />
+        <circle cx="9" cy="4" r="3.4" fill={color} />
+        <path d="M6 2 4 -0.5M12 2l2 -2.5" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+        <path d="M4.5 17v-4a4.5 4.5 0 0 1 9 0v4" fill={color} />
+        <rect x="12" y="9" width="6" height="1.8" rx="0.9" fill={color} transform="rotate(-30 15 10)" />
       </svg>
     );
   }
   if (kind === 'giant') {
     return (
       <svg {...common}>
-        <circle cx="12" cy="5.5" r="3" fill={color} />
-        <path d="M5 21v-6a7 7 0 0 1 14 0v6" fill={color} opacity="0.9" />
+        <circle cx="14" cy="5" r="2.8" fill={color} />
+        <path d="M6 22v-7a8 8 0 0 1 16 0v7" fill={color} />
+        <circle cx="6" cy="21" r="2.6" fill={color} />
+        <circle cx="22" cy="21" r="2.6" fill={color} />
       </svg>
     );
   }
   if (kind === 'wallBreaker') {
     return (
       <svg {...common}>
-        <circle cx="11" cy="7" r="2.6" fill={color} />
-        <path d="M7 21v-5a4.5 4.5 0 0 1 8 0v2" fill={color} opacity="0.9" />
-        <circle cx="17" cy="16" r="3.4" fill={color} opacity="0.95" />
-        <path d="M17 13.2v5.6M14.4 16h5.2" stroke={colors.bgDark} strokeWidth="1" opacity="0.5" />
+        <circle cx="9" cy="5" r="2.8" fill={color} />
+        <path d="M5.5 20v-5a4 4 0 0 1 7 0v3" fill={color} />
+        <circle cx="17" cy="15" r="4" fill={color} />
+        <path d="M17 11v8M13 15h8" stroke={colors.bgDark} strokeWidth="1" opacity="0.5" />
+        <path d="M17 9.5v-2" stroke={color} strokeWidth="1.4" strokeLinecap="round" />
       </svg>
     );
   }

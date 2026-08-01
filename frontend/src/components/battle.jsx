@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { tokens, Card, Button, Badge, PageHeading, Callout, tileColorFor } from './ui';
-import { BuildingIcon, TroopIcon, TROOP_DEFS, IconGold, IconElixir, IconStar, IconCrosshair, IconSwords } from './theme';
+import { colors, BuildingIcon, TroopIcon, TROOP_DEFS, IconGold, IconElixir, IconStar, IconCrosshair, IconSwords, IconShield } from './theme';
+
+import grassTileImg from '../assets/grass.jpeg'; 
 
 const CELL = 52;
 const GAP = 6;
@@ -380,34 +381,74 @@ function Battle({ token, onRaidComplete }) {
   const secondsLeft = Math.ceil(timeLeftMs / 1000);
 
   return (
-    <div style={{ width: '100%', boxSizing: 'border-box' }}>
-      <PageHeading eyebrow="War room" title="Raid an enemy village" />
+    <div style={{ padding: '24px', color: colors.textMain, width: '100%', boxSizing: 'border-box' }}>
+      <h2 style={{ fontSize: '20px', margin: '0 0 4px 0' }}>Raid an enemy village</h2>
+      <p style={{ color: colors.textDim, fontSize: '13px', marginBottom: '20px' }}>
+        Pick your enemy, choose your troops, drop them exactly where you want on the grid, then deploy.
+      </p>
 
-      {error !== '' ? <Callout tone="rust">{error}</Callout> : null}
+      {error !== '' ? (
+        <div style={{
+          backgroundColor: colors.dangerDim,
+          border: '1px solid #7a2020',
+          color: colors.danger,
+          padding: '12px',
+          borderRadius: '8px',
+          marginBottom: '20px',
+          fontSize: '13px'
+        }}>
+          {error}
+        </div>
+      ) : null}
 
       {phase === 'idle' ? (
-        <Card style={{ padding: '40px', textAlign: 'center' }}>
-          <Button
-            variant="primary"
+        <div style={{
+          backgroundColor: colors.bgCard,
+          border: '1px solid ' + colors.border,
+          borderRadius: '14px',
+          padding: '40px',
+          textAlign: 'center'
+        }}>
+          <button
             onClick={handleFindTarget}
             disabled={opponentsLoading === true}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '14px 28px', fontSize: '14px' }}
+            style={{
+              backgroundColor: '#2e7d32',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '14px 28px',
+              fontSize: '15px',
+              fontWeight: 'bold',
+              cursor: opponentsLoading === true ? 'not-allowed' : 'pointer',
+              opacity: opponentsLoading === true ? 0.6 : 1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}
           >
-            <IconCrosshair size={17} color="#fbf3e2" />
-            {opponentsLoading === true ? 'Scouting for targets…' : 'Find target'}
-          </Button>
-        </Card>
+            <IconCrosshair size={18} color="#fff" />
+            {opponentsLoading === true ? 'Scouting for targets...' : 'Find target'}
+          </button>
+        </div>
       ) : null}
 
       {phase === 'select-enemy' ? (
-        <Card style={{ width: '100%', boxSizing: 'border-box' }}>
-          <h3 style={{ marginBottom: '4px' }}>Choose your enemy</h3>
-          <p style={{ color: tokens.textDim, fontSize: '12px', marginBottom: '16px' }}>
+        <div style={{
+          backgroundColor: colors.bgCard,
+          border: '1px solid ' + colors.border,
+          borderRadius: '14px',
+          padding: '20px',
+          width: '100%',
+          boxSizing: 'border-box'
+        }}>
+          <h3 style={{ margin: '0 0 4px 0', fontSize: '15px' }}>Choose your enemy</h3>
+          <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: colors.textDim }}>
             Pick which village to raid.
           </p>
 
           {opponents.length === 0 ? (
-            <div style={{ backgroundColor: tokens.panelSunken, borderRadius: tokens.radiusMd, padding: '20px', textAlign: 'center', color: tokens.textDim, fontSize: '13px' }}>
+            <div style={{ backgroundColor: colors.bgDark, borderRadius: '8px', padding: '20px', textAlign: 'center', color: colors.textDim, fontSize: '13px' }}>
               No other villages to raid right now.
             </div>
           ) : (
@@ -418,26 +459,32 @@ function Battle({ token, onRaidComplete }) {
               marginBottom: '16px'
             }}>
               {opponents.map(function (o) {
+                const shielded = o.shielded === true;
                 return (
                   <button
                     key={o.player_id}
-                    onClick={function () { handlePickEnemy(o); }}
-                    disabled={troopsLoading === true}
+                    onClick={function () { if (!shielded) handlePickEnemy(o); }}
+                    disabled={troopsLoading === true || shielded}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      backgroundColor: tokens.panelSunken, borderRadius: tokens.radiusMd, padding: '10px 12px',
-                      border: '1px solid ' + tokens.line, cursor: troopsLoading === true ? 'not-allowed' : 'pointer',
-                      textAlign: 'left', fontFamily: tokens.fontBody
+                      backgroundColor: colors.bgDark, borderRadius: '8px', padding: '10px 12px',
+                      border: '1px solid ' + (shielded ? colors.success : colors.border),
+                      cursor: (troopsLoading === true || shielded) ? 'not-allowed' : 'pointer',
+                      textAlign: 'left', fontFamily: 'inherit',
+                      opacity: shielded ? 0.6 : 1
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: tokens.text }}>{o.username}</div>
-                      <div style={{ fontSize: '11px', color: tokens.textDim }}>
-                        Town level {o.town_level} &middot; {o.buildings_count} building{o.buildings_count === 1 ? '' : 's'}
+                      <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {o.username}
+                        {shielded ? <IconShield size={13} color={colors.success} /> : null}
+                      </div>
+                      <div style={{ fontSize: '11px', color: colors.textDim }}>
+                        {shielded ? 'Shielded \u00b7 ' : ''}Town level {o.town_level} &middot; {o.buildings_count} building{o.buildings_count === 1 ? '' : 's'}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: tokens.brass, fontSize: '13px', fontWeight: 700 }}>
-                      <IconStar size={13} filled={true} /> {o.trophy_count}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: colors.gold, fontSize: '13px', fontWeight: 'bold' }}>
+                      <IconStar size={14} filled={true} /> {o.trophy_count}
                     </div>
                   </button>
                 );
@@ -445,24 +492,37 @@ function Battle({ token, onRaidComplete }) {
             </div>
           )}
 
-          <Button variant="secondary" fullWidth onClick={resetForNextRaid}>
+          <button
+            onClick={resetForNextRaid}
+            style={{ width: '100%', backgroundColor: 'transparent', border: '1px solid ' + colors.border, color: colors.textDim, borderRadius: '8px', padding: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+          >
             Cancel
-          </Button>
-        </Card>
+          </button>
+        </div>
       ) : null}
 
       {phase === 'deploy' ? (
-        <Card style={{ width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{
+          backgroundColor: colors.bgCard,
+          border: '1px solid ' + colors.border,
+          borderRadius: '14px',
+          padding: '20px',
+          width: '100%',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px'
+        }}>
           <div>
-            <h3 style={{ marginBottom: '4px' }}>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '15px' }}>
               Plan your attack on {selectedEnemy ? selectedEnemy.username : 'this village'}
             </h3>
-            <p style={{ color: tokens.textDim, fontSize: '12px', marginBottom: '16px' }}>
+            <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: colors.textDim }}>
               Choose how many of each troop to send.
             </p>
 
             {myTroops.length === 0 ? (
-              <div style={{ backgroundColor: tokens.panelSunken, borderRadius: tokens.radiusMd, padding: '20px', textAlign: 'center', color: tokens.textDim, fontSize: '13px' }}>
+              <div style={{ backgroundColor: colors.bgDark, borderRadius: '8px', padding: '20px', textAlign: 'center', color: colors.textDim, fontSize: '13px' }}>
                 You have no trained troops. Train some first.
               </div>
             ) : (
@@ -482,15 +542,15 @@ function Battle({ token, onRaidComplete }) {
                       onClick={function () { setActivePlacementTroop(t.name); }}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        backgroundColor: isActive ? tokens.panelRaised : tokens.panelSunken, borderRadius: tokens.radiusMd, padding: '10px 12px',
-                        border: '1px solid ' + (isActive ? tokens.brass : tokens.line), cursor: 'pointer'
+                        backgroundColor: isActive ? colors.bgCardRaised : colors.bgDark, borderRadius: '8px', padding: '10px 12px',
+                        border: '1px solid ' + (isActive ? colors.success : colors.border), cursor: 'pointer'
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <TroopIcon name={t.name} size={19} color={tokens.brass} />
+                        <TroopIcon name={t.name} size={20} color='#66bb6a' />
                         <div>
                           <div style={{ fontSize: '13px' }}>{t.name}</div>
-                          <div style={{ fontSize: '11px', color: tokens.textDim }}>
+                          <div style={{ fontSize: '11px', color: colors.textDim }}>
                             Owned: {t.quantity}
                             {count > 0 && pos ? ' \u00b7 drop at (' + pos.x + ', ' + pos.y + ')' : ''}
                           </div>
@@ -499,12 +559,12 @@ function Battle({ token, onRaidComplete }) {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} onClick={function (e) { e.stopPropagation(); }}>
                         <button
                           onClick={function () { adjustDeploy(t.name, -1, t.quantity); }}
-                          style={{ width: '26px', height: '26px', borderRadius: tokens.radiusSm, border: '1px solid ' + tokens.line, backgroundColor: tokens.panelRaised, color: tokens.text, cursor: 'pointer', fontWeight: 700 }}
+                          style={{ width: '26px', height: '26px', borderRadius: '6px', border: '1px solid ' + colors.border, backgroundColor: colors.bgCardRaised, color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
                         >-</button>
-                        <span style={{ minWidth: '24px', textAlign: 'center', fontWeight: 700, color: tokens.brass }}>{count}</span>
+                        <span style={{ minWidth: '24px', textAlign: 'center', fontWeight: 'bold', color: '#66bb6a' }}>{count}</span>
                         <button
                           onClick={function () { adjustDeploy(t.name, 1, t.quantity); }}
-                          style={{ width: '26px', height: '26px', borderRadius: tokens.radiusSm, border: '1px solid ' + tokens.line, backgroundColor: tokens.panelRaised, color: tokens.text, cursor: 'pointer', fontWeight: 700 }}
+                          style={{ width: '26px', height: '26px', borderRadius: '6px', border: '1px solid ' + colors.border, backgroundColor: colors.bgCardRaised, color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
                         >+</button>
                       </div>
                     </div>
@@ -514,35 +574,48 @@ function Battle({ token, onRaidComplete }) {
             )}
 
             <div style={{ display: 'flex', gap: '10px' }}>
-              <Button variant="secondary" style={{ flex: 1 }} onClick={resetForNextRaid}>
+              <button
+                onClick={resetForNextRaid}
+                style={{ flex: 1, backgroundColor: 'transparent', border: '1px solid ' + colors.border, color: colors.textDim, borderRadius: '8px', padding: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
                 Cancel
-              </Button>
-              <Button
-                variant="primary"
-                style={{ flex: 2 }}
+              </button>
+              <button
                 onClick={handleDeploy}
                 disabled={loading === true || totalToDeploy === 0}
+                style={{
+                  flex: 2,
+                  backgroundColor: (loading || totalToDeploy === 0) ? '#1f3d20' : '#2e7d32',
+                  color: '#fff', border: 'none', borderRadius: '8px', padding: '12px',
+                  fontWeight: 'bold', cursor: (loading || totalToDeploy === 0) ? 'not-allowed' : 'pointer'
+                }}
               >
-                {loading === true ? 'Deploying…' : 'Deploy ' + totalToDeploy + ' troop' + (totalToDeploy === 1 ? '' : 's')}
-              </Button>
+                {loading === true ? 'Deploying...' : 'Deploy ' + totalToDeploy + ' troop' + (totalToDeploy === 1 ? '' : 's')}
+              </button>
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ fontSize: '11px', color: tokens.textDim, marginBottom: '10px' }}>
+            <div style={{ fontSize: '11px', color: colors.textDim, marginBottom: '10px' }}>
               {activePlacementTroop ? 'Tap a tile to drop ' + activePlacementTroop : 'Pick a troop above to place it'}
             </div>
+
+            {/* GRASS GROUND IMAGE GRID PREVIEW */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(' + GRID_SIZE + ', 52px)',
               gridTemplateRows: 'repeat(' + GRID_SIZE + ', 52px)',
               gap: '6px',
-              backgroundColor: tokens.panelSunken,
+              backgroundImage: 'url(' + grassTileImg + ')',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
               padding: '16px',
-              borderRadius: tokens.radiusLg,
-              border: '1px solid ' + tokens.line,
-              boxShadow: tokens.shadowInset,
-              width: 'fit-content'
+              borderRadius: '8px',
+              border: '2px solid #3c5427',
+              backgroundColor: '#11180d',
+              boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+              width: 'fit-content',
+              boxSizing: 'border-box'
             }}>
               {Array.from({ length: GRID_SIZE * GRID_SIZE }).map(function (_, idx) {
                 const gx = idx % GRID_SIZE;
@@ -553,10 +626,22 @@ function Battle({ token, onRaidComplete }) {
                   return p && p.x === gx && p.y === gy && (deployCounts[name] || 0) > 0;
                 });
 
-                let colorKey = 'empty';
-                if (building) colorKey = building.name;
-                if (troopsHere.length > 0) colorKey = 'troop';
-                const c = tileColorFor(colorKey);
+                // Default semi-transparent tile allowing grass image to show
+                let tileBg = 'rgba(0, 0, 0, 0.15)';
+                let borderStyle = '1px solid rgba(255, 255, 255, 0.15)';
+
+                if (building) {
+                  if (building.name === 'Cannon') { tileBg = 'rgba(92, 29, 46, 0.9)'; borderStyle = '1px solid #8c2e46'; }
+                  else if (building.name === 'TownHall') { tileBg = 'rgba(26, 58, 92, 0.9)'; borderStyle = '1px solid #2a5c8f'; }
+                  else if (building.name === 'Barracks') { tileBg = 'rgba(45, 66, 38, 0.9)'; borderStyle = '1px solid #3c5932'; }
+                  else { tileBg = 'rgba(125, 106, 74, 0.9)'; borderStyle = '1px solid rgba(0,0,0,0.35)'; }
+                }
+
+                // Troop drop indicator: tactical green
+                if (troopsHere.length > 0) { 
+                  tileBg = 'rgba(46, 125, 50, 0.85)'; 
+                  borderStyle = '1px solid #4caf50'; 
+                }
 
                 return (
                   <div
@@ -564,67 +649,71 @@ function Battle({ token, onRaidComplete }) {
                     title={building ? building.name : gx + ',' + gy}
                     onClick={function () { handlePlacementGridClick(gx, gy); }}
                     style={{
-                      width: '52px', height: '52px', borderRadius: tokens.radiusSm,
-                      backgroundColor: (building || troopsHere.length > 0) ? c.bg : tokens.panelSunken,
-                      border: '1px solid ' + ((building || troopsHere.length > 0) ? c.border : tokens.lineSoft),
+                      width: '52px', height: '52px', borderRadius: '4px',
+                      backgroundColor: tileBg,
+                      border: borderStyle,
                       cursor: activePlacementTroop ? 'pointer' : 'default',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'background-color 0.15s ease'
+                      transition: 'background 0.2s'
                     }}
                   >
-                    {building ? <BuildingIcon name={building.name} size={20} color={tokens.text} /> : null}
-                    {troopsHere.length > 0 ? <TroopIcon name={troopsHere[0]} size={17} color={tokens.text} /> : null}
+                    {building ? <BuildingIcon name={building.name} size={20} color="#fff" /> : null}
+                    {troopsHere.length > 0 ? <TroopIcon name={troopsHere[0]} size={18} color="#fff" /> : null}
                   </div>
                 );
               })}
             </div>
-            <div style={{ fontSize: '10px', color: tokens.textDim, marginTop: '10px', display: 'flex', gap: '16px' }}>
-              <div><span style={{ display: 'inline-block', width: '9px', height: '9px', backgroundColor: tokens.panelSunken, border: '1px solid ' + tokens.lineSoft, borderRadius: '2px', marginRight: '5px' }} />Empty tile</div>
-              <div><span style={{ display: 'inline-block', width: '9px', height: '9px', backgroundColor: '#7d6a4a', borderRadius: '2px', marginRight: '5px' }} />Scouted building</div>
-              <div><span style={{ display: 'inline-block', width: '9px', height: '9px', backgroundColor: tokens.clay, borderRadius: '2px', marginRight: '5px' }} />Troop drop point</div>
-            </div>
+            
+            
           </div>
-        </Card>
+
+        </div>
       ) : null}
 
       {(phase === 'fighting' || phase === 'done') ? (
         <div style={{ maxWidth: FIELD_SIZE + 'px' }}>
 
           {showHud ? (
-            <Card padding={0} style={{
+            <div style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
+              backgroundColor: colors.bgCardRaised,
+              border: '1px solid ' + colors.border,
+              borderRadius: '10px',
               padding: '10px 16px',
               marginBottom: '10px',
               fontSize: '13px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
                 <span style={{
                   display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%',
-                  backgroundColor: phase === 'fighting' ? tokens.rust : tokens.moss
+                  backgroundColor: phase === 'fighting' ? colors.danger : colors.success
                 }} />
                 {phase === 'fighting' ? 'Battle in progress' : 'Battle ended'}
               </div>
-              <div style={{ color: tokens.textDim }}>
+              <div style={{ color: colors.textDim }}>
                 {phase === 'fighting' ? secondsLeft + 's left' : 'Final result'}
               </div>
-              <div style={{ fontWeight: 700, color: tokens.brass }}>
+              <div style={{ fontWeight: 'bold', color: colors.gold }}>
                 {phase === 'fighting' ? liveDestructionPct : (battleResult.result ? battleResult.result.destruction : 0)}% destroyed
               </div>
-            </Card>
+            </div>
           ) : null}
 
           <div style={{
             position: 'relative',
             width: FIELD_SIZE + 'px',
             height: FIELD_SIZE + 'px',
-            borderRadius: tokens.radiusLg,
-            backgroundColor: tokens.panel,
-            border: '1px solid ' + tokens.line,
-            boxShadow: tokens.shadowPanel,
+            borderRadius: '8px',
+            backgroundImage: 'url(' + grassTileImg + ')',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            border: '2px solid #3c5427',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
             boxSizing: 'border-box'
           }}>
+            {/* LIVE BATTLEFIELD GRASS IMAGE GRID */}
             <div style={{
               position: 'absolute',
               left: PAD + 'px', top: PAD + 'px', right: PAD + 'px', bottom: PAD + 'px',
@@ -636,9 +725,9 @@ function Battle({ token, onRaidComplete }) {
               {Array.from({ length: GRID_SIZE * GRID_SIZE }).map(function (_, idx) {
                 return (
                   <div key={idx} style={{
-                    backgroundColor: tokens.panelSunken,
-                    border: '1px solid ' + tokens.lineSoft,
-                    borderRadius: tokens.radiusSm
+                    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    borderRadius: '4px'
                   }} />
                 );
               })}
@@ -647,7 +736,8 @@ function Battle({ token, onRaidComplete }) {
             {buildings.length === 0 ? (
               <div style={{
                 position: 'absolute', left: 0, right: 0, top: '46%', textAlign: 'center',
-                color: tokens.textFaint, fontSize: '13px'
+                color: 'rgba(255,255,255,0.85)', fontSize: '13px', fontWeight: 'bold',
+                textShadow: '0 1px 3px rgba(0,0,0,0.8)'
               }}>
                 Undefended village — nothing to destroy
               </div>
@@ -672,8 +762,8 @@ function Battle({ token, onRaidComplete }) {
                 >
                   <div style={{
                     width: '44px', height: '44px', margin: '0 auto',
-                    borderRadius: tokens.radiusMd,
-                    backgroundColor: b.destroyed ? '#3a2a1a' : '#7d6a4a',
+                    borderRadius: '8px',
+                    backgroundColor: b.destroyed ? '#3a2a1a' : colors.buildingFill,
                     border: '1px solid rgba(0,0,0,0.35)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     boxShadow: b.destroyed ? 'none' : '0 2px 6px rgba(0,0,0,0.3)'
@@ -682,11 +772,11 @@ function Battle({ token, onRaidComplete }) {
                   </div>
                   <div style={{
                     width: '40px', height: '5px', margin: '4px auto 0', borderRadius: '3px',
-                    backgroundColor: '#2a1414', overflow: 'hidden'
+                    backgroundColor: colors.hpBg, overflow: 'hidden'
                   }}>
                     <div style={{
                       width: (hpPct * 100) + '%', height: '100%',
-                      backgroundColor: hpPct > 0.4 ? tokens.moss : tokens.rust,
+                      backgroundColor: hpPct > 0.4 ? colors.hpFill : colors.hpFillLow,
                       transition: 'width 0.25s linear'
                     }} />
                   </div>
@@ -730,7 +820,7 @@ function Battle({ token, onRaidComplete }) {
                     justifyContent: 'center',
                     transition: 'left 0.55s ease-in-out, top 0.55s ease-in-out',
                     transform: t.attacking ? 'scale(1.15)' : 'scale(1)',
-                    boxShadow: t.attacking ? '0 0 0 2px ' + tokens.rust : 'none',
+                    boxShadow: t.attacking ? '0 0 0 2px ' + colors.danger : 'none',
                     zIndex: 3
                   }}
                 >
@@ -741,51 +831,65 @@ function Battle({ token, onRaidComplete }) {
           </div>
 
           {phase === 'done' ? (
-            <Card style={{ marginTop: '16px' }}>
-              <h3 style={{ textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '14px' }}>
+            <div style={{
+              marginTop: '16px',
+              backgroundColor: colors.bgCard,
+              border: '1px solid ' + colors.border,
+              borderRadius: '14px',
+              padding: '20px'
+            }}>
+              <h3 style={{ fontSize: '16px', margin: '0 0 14px 0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 {battleResult.result.outcome === 'win' ? (
                   <React.Fragment>
-                    <IconSwords size={17} color={tokens.moss} /> Victory
+                    <IconSwords size={18} color={colors.success} /> Victory
                   </React.Fragment>
                 ) : 'Attack failed'}
               </h3>
 
               <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '16px' }}>
                 <div style={{ textAlign: 'center' }}>
-                  <p style={{ color: tokens.textDim, fontSize: '12px', marginBottom: '4px' }}>Destruction</p>
-                  <p style={{ fontSize: '20px', fontWeight: 700, color: tokens.brass }}>{battleResult.result.destruction}%</p>
+                  <p style={{ color: colors.textDim, fontSize: '12px', margin: '0 0 4px 0' }}>Destruction</p>
+                  <p style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, color: colors.gold }}>{battleResult.result.destruction}%</p>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <p style={{ color: tokens.textDim, fontSize: '12px', marginBottom: '4px' }}>Stars</p>
+                  <p style={{ color: colors.textDim, fontSize: '12px', margin: '0 0 4px 0' }}>Stars</p>
                   <div style={{ display: 'flex', gap: '2px', justifyContent: 'center' }}>
                     {[0, 1, 2].map(function (i) {
-                      return <IconStar key={i} size={19} filled={i < battleResult.result.stars} />;
+                      return <IconStar key={i} size={20} filled={i < battleResult.result.stars} />;
                     })}
                   </div>
                 </div>
               </div>
 
-              <div style={{ backgroundColor: tokens.panelSunken, borderRadius: tokens.radiusMd, padding: '12px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: tokens.brass }}>
-                  <IconGold size={15} /> +{battleResult.loot.gold.toLocaleString()} gold looted
+              <div style={{ backgroundColor: colors.bgDark, borderRadius: '8px', padding: '12px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: colors.gold }}>
+                  <IconGold size={16} /> +{battleResult.loot.gold.toLocaleString()} gold looted
                 </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: tokens.berry }}>
-                  <IconElixir size={15} /> +{battleResult.loot.elixir.toLocaleString()} elixir looted
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: colors.elixir }}>
+                  <IconElixir size={16} /> +{battleResult.loot.elixir.toLocaleString()} elixir looted
                 </span>
               </div>
 
-              <Button
-                variant="primary"
-                fullWidth
-                style={{ marginTop: '16px' }}
+              <button
                 onClick={function () {
                   resetForNextRaid();
                   if (onRaidComplete) onRaidComplete();
                 }}
+                style={{
+                  width: '100%',
+                  marginTop: '16px',
+                  backgroundColor: "#2e7d32",
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '10px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
               >
                 Attack again
-              </Button>
-            </Card>
+              </button>
+            </div>
           ) : null}
         </div>
       ) : null}
