@@ -248,7 +248,7 @@ func ExecuteRaid(db *sqlx.DB) http.HandlerFunc {
 		const engagementSeconds = 45.0
 
 		for _, d := range deployed {
-			damageBudget := d.DPS * engagementSeconds
+			damageBudget := d.DPS * float64(d.Quantity) * engagementSeconds
 			for damageBudget > 0 {
 				var nearest *liveBuilding
 				nearestDist := math.MaxFloat64
