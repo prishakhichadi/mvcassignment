@@ -1,30 +1,7 @@
 import React from 'react';
+import { colors } from './ui';
 
-export const colors = {
-  bgDark: '#15172a',
-  bgCard: '#1f2138',
-  bgCardRaised: '#272a47',
-  border: '#363a5c',
-  textMain: '#e8e8f0',
-  textDim: '#8a8caa',
-  purple: '#5b4fcf',
-  purpleLight: '#a78bfa',
-  gold: '#e8b339',
-  goldDim: '#7a6228',
-  elixir: '#b06fe0',
-  elixirDim: '#5a3870',
-  danger: '#e8615c',
-  dangerDim: '#3d1f1f',
-  success: '#5cd97a',
-  successDim: '#1a3d22',
-  grass: '#5c8a45',
-  grassDark: '#517b3d',
-  grassPath: '#6f9456',
-  buildingFill: '#7d6a4a',
-  hpBg: '#2a1414',
-  hpFill: '#5cd97a',
-  hpFillLow: '#e8615c',
-};
+export { colors };
 
 export function IconGold({ size = 16, color = colors.gold }) {
   return (
@@ -125,8 +102,6 @@ export function IconSwords({ size = 16, color = colors.textMain }) {
   );
 }
 
-
-
 export const BUILDING_DEFS = [
   {
     key: 'Cannon', label: 'Cannon', icon: 'cannon', townLevelRequired: 1,
@@ -211,8 +186,6 @@ export const TROOP_DEFS = [
     ],
   },
 ];
-
-
 
 export function level1Cost(def) {
   return def.levels[0].cost;

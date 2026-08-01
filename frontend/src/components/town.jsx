@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { colors, BuildingIcon, BUILDING_DEFS, level1Cost, IconGold } from './theme';
+import { tokens, Card, Button, Badge, PageHeading, Callout } from './ui';
+import { BuildingIcon, BUILDING_DEFS, level1Cost, IconGold } from './theme';
 
 function Town({ token, gold, elixir, onPlacementSuccess }) {
   const [gridMap, setGridMap] = useState([]);
@@ -9,14 +10,8 @@ function Town({ token, gold, elixir, onPlacementSuccess }) {
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [hint, setHint] = useState('');
   const [hintIsError, setHintIsError] = useState(false);
-  const [thInfo, setThInfo] = useState(null); 
+  const [thInfo, setThInfo] = useState(null);
   const [thUpgrading, setThUpgrading] = useState(false);
-
-  const grassFieldStyles = {
-    grassBg: '#1e2d1a',
-    grassBorder: '#293d24',
-    placedBg: '#344e2c',
-  };
 
   function loadLayout() {
     setLoading(true);
@@ -26,19 +21,19 @@ function Town({ token, gold, elixir, onPlacementSuccess }) {
       method: 'GET',
       headers: { 'Authorization': 'Bearer ' + token }
     })
-    .then(function(res) {
-      if (res.ok === false) throw new Error('Failed to load town layout');
-      return res.json();
-    })
-    .then(function(data) {
-      setGridMap(data.grid || []);
-      setTownLevel(data.town_level || 1);
-      setLoading(false);
-    })
-    .catch(function(err) {
-      setError(err.message);
-      setLoading(false);
-    });
+      .then(function (res) {
+        if (res.ok === false) throw new Error('Failed to load town layout');
+        return res.json();
+      })
+      .then(function (data) {
+        setGridMap(data.grid || []);
+        setTownLevel(data.town_level || 1);
+        setLoading(false);
+      })
+      .catch(function (err) {
+        setError(err.message);
+        setLoading(false);
+      });
   }
 
   function loadTownHallInfo() {
@@ -46,12 +41,12 @@ function Town({ token, gold, elixir, onPlacementSuccess }) {
       method: 'GET',
       headers: { 'Authorization': 'Bearer ' + token }
     })
-    .then(function(res) { return res.ok ? res.json() : null; })
-    .then(function(data) { if (data) setThInfo(data); })
-    .catch(function() {});
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) { if (data) setThInfo(data); })
+      .catch(function () { });
   }
 
-  useEffect(function() {
+  useEffect(function () {
     loadLayout();
     loadTownHallInfo();
   }, [token]);
@@ -60,7 +55,7 @@ function Town({ token, gold, elixir, onPlacementSuccess }) {
     setHint('');
     setHintIsError(false);
 
-    const def = BUILDING_DEFS.find(function(d) { return d.key === buildingName; });
+    const def = BUILDING_DEFS.find(function (d) { return d.key === buildingName; });
     const cost = def ? level1Cost(def) : 0;
     if (def && gold < cost) {
       setHint('Not enough gold: needs ' + cost.toLocaleString() + '.');
@@ -76,23 +71,23 @@ function Town({ token, gold, elixir, onPlacementSuccess }) {
       },
       body: JSON.stringify({ building_name: buildingName, x: x, y: y })
     })
-    .then(function(res) {
-      if (res.ok === false) {
-        return res.text().then(function(text) { throw new Error(text || 'Construction denied.'); });
-      }
-      return res.json();
-    })
-    .then(function() {
-      setHint('Structure deployed successfully!');
-      setSelectedBuilding(null);
-      loadLayout();
-      loadTownHallInfo();
-      if (onPlacementSuccess) onPlacementSuccess();
-    })
-    .catch(function(err) {
-      setHint(err.message);
-      setHintIsError(true);
-    });
+      .then(function (res) {
+        if (res.ok === false) {
+          return res.text().then(function (text) { throw new Error(text || 'Construction denied.'); });
+        }
+        return res.json();
+      })
+      .then(function () {
+        setHint('Structure deployed successfully.');
+        setSelectedBuilding(null);
+        loadLayout();
+        loadTownHallInfo();
+        if (onPlacementSuccess) onPlacementSuccess();
+      })
+      .catch(function (err) {
+        setHint(err.message);
+        setHintIsError(true);
+      });
   }
 
   function handleUpgradeTownHall() {
@@ -101,91 +96,83 @@ function Town({ token, gold, elixir, onPlacementSuccess }) {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token }
     })
-    .then(function(res) {
-      if (res.ok === false) {
-        return res.text().then(function(text) { throw new Error(text || 'Upgrade denied.'); });
-      }
-      return res.json();
-    })
-    .then(function(data) {
-      setThUpgrading(false);
-      setTownLevel(data.town_level);
-      setHint('Town Hall upgraded to level ' + data.town_level + '!');
-      setHintIsError(false);
-      loadTownHallInfo();
-      if (onPlacementSuccess) onPlacementSuccess();
-    })
-    .catch(function(err) {
-      setThUpgrading(false);
-      setHint(err.message);
-      setHintIsError(true);
-    });
+      .then(function (res) {
+        if (res.ok === false) {
+          return res.text().then(function (text) { throw new Error(text || 'Upgrade denied.'); });
+        }
+        return res.json();
+      })
+      .then(function (data) {
+        setThUpgrading(false);
+        setTownLevel(data.town_level);
+        setHint('Town Hall upgraded to level ' + data.town_level + '.');
+        setHintIsError(false);
+        loadTownHallInfo();
+        if (onPlacementSuccess) onPlacementSuccess();
+      })
+      .catch(function (err) {
+        setThUpgrading(false);
+        setHint(err.message);
+        setHintIsError(true);
+      });
   }
 
   return (
-    <div style={{ color: colors.textMain, display: 'flex', flexDirection: 'column', gap: '20px', fontFamily: 'monospace' }}>
+    <div>
+      <PageHeading eyebrow="Village" title="Town Grid" subtitle="Deploy defenses and grow your town." />
 
-      <div style={{ backgroundColor: colors.bgCard, borderRadius: '10px', padding: '16px', border: '1px solid ' + colors.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: '18px', fontFamily: 'monospace', letterSpacing: '1px' }}>TOWN GRID</h2>
-          <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: colors.textDim, fontFamily: 'monospace' }}>
-            Deploy defenses and build your town.
-          </p>
-        </div>
+      {error !== '' ? <Callout tone="rust">{error}</Callout> : null}
 
-        {}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '14px',
-          backgroundColor: colors.bgDark, border: '1px solid ' + colors.border,
-          borderRadius: '10px', padding: '10px 16px'
-        }}>
-          <div>
-            <div style={{ fontSize: '10px', color: colors.textDim, letterSpacing: '0.5px' }}>TOWN HALL</div>
-            <div style={{ fontSize: '18px', fontWeight: 'bold', color: colors.purpleLight }}>Level {townLevel}</div>
+      <Card padding={16} style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ fontSize: '10px', color: tokens.textFaint, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Town Hall</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: tokens.brass, fontFamily: tokens.fontDisplay }}>Level {townLevel}</div>
           </div>
+
           {thInfo && thInfo.next_level ? (
-            <button
+            <Button
+              variant="primary"
               onClick={handleUpgradeTownHall}
               disabled={thUpgrading === true}
               title={'Requires ' + thInfo.next_min_buildings + '+ buildings placed'}
-              style={{
-                backgroundColor: thUpgrading ? '#444466' : colors.purple,
-                color: '#fff', border: 'none', borderRadius: '8px',
-                padding: '10px 14px', fontWeight: 'bold', fontSize: '12px',
-                cursor: thUpgrading ? 'not-allowed' : 'pointer',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'
-              }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '9px 14px' }}
             >
               <span>Upgrade to Lv {thInfo.next_level}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 'normal', fontSize: '11px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500, fontSize: '11px' }}>
                 <IconGold size={11} /> {thInfo.next_gold_cost.toLocaleString()}
                 {' · '}{thInfo.buildings_placed}/{thInfo.next_min_buildings} buildings
               </span>
-            </button>
-          ) : (
-            <div style={{ fontSize: '11px', color: colors.textDim }}></div>
-          )}
+            </Button>
+          ) : null}
         </div>
-      </div>
+      </Card>
 
       <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
 
-        <div style={{ backgroundColor: grassFieldStyles.grassBg, borderRadius: '10px', border: '2px solid ' + colors.border, padding: '12px', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.4)' }}>
+        {/* --- grid --- */}
+        <div style={{
+          backgroundColor: tokens.panelSunken,
+          borderRadius: tokens.radiusLg,
+          border: '1px solid ' + tokens.line,
+          boxShadow: tokens.shadowInset,
+          padding: '12px',
+        }}>
           {loading === true ? (
-            <div style={{ width: '440px', height: '440px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', color: colors.gold }}>
-              LOADING MAP
+            <div style={{ width: '440px', height: '440px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: tokens.brass, fontSize: '13px', fontWeight: 700 }}>
+              Loading map…
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {gridMap.map(function(row, y) {
+              {gridMap.map(function (row, y) {
                 return (
                   <div key={y} style={{ display: 'flex', gap: '4px' }}>
-                    {row.map(function(cell, x) {
+                    {row.map(function (cell, x) {
                       const filled = cell && cell !== 'empty' && cell !== '';
                       return (
                         <div
                           key={x}
-                          onClick={function() {
+                          onClick={function () {
                             if (selectedBuilding) {
                               placeBuilding(selectedBuilding, x, y);
                             } else if (filled) {
@@ -195,15 +182,15 @@ function Town({ token, gold, elixir, onPlacementSuccess }) {
                           }}
                           style={{
                             width: '40px', height: '40px',
-                            backgroundColor: filled ? grassFieldStyles.placedBg : 'transparent',
-                            border: '1px solid ' + (selectedBuilding ? colors.purple : grassFieldStyles.grassBorder),
-                            borderRadius: '4px', cursor: 'pointer',
+                            backgroundColor: filled ? '#3a4a2a' : 'transparent',
+                            border: '1px solid ' + (selectedBuilding ? tokens.brass : '#33401f'),
+                            borderRadius: tokens.radiusSm, cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transition: 'all 0.15s ease'
+                            transition: 'border-color 0.15s ease',
                           }}
                         >
                           {filled ? (
-                            <BuildingIcon name={typeof cell === 'string' ? cell : cell.name} size={24} color={colors.gold} />
+                            <BuildingIcon name={typeof cell === 'string' ? cell : cell.name} size={24} color={tokens.brass} />
                           ) : null}
                         </div>
                       );
@@ -215,12 +202,13 @@ function Town({ token, gold, elixir, onPlacementSuccess }) {
           )}
         </div>
 
-        <div style={{ flex: 1, minWidth: '260px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ backgroundColor: colors.bgCard, borderRadius: '10px', padding: '16px', border: '1px solid ' + colors.border }}>
-            <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', color: colors.textDim, fontFamily: 'monospace', letterSpacing: '0.5px' }}>CONSTRUCT</h3>
+        {/* --- build menu --- */}
+        <div style={{ flex: 1, minWidth: '260px' }}>
+          <Card>
+            <h4 style={{ marginBottom: '14px' }}>Construct</h4>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {BUILDING_DEFS.map(function(def) {
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+              {BUILDING_DEFS.map(function (def) {
                 const isSelected = selectedBuilding === def.key;
                 const locked = townLevel < def.townLevelRequired;
                 const cost = level1Cost(def);
@@ -228,40 +216,39 @@ function Town({ token, gold, elixir, onPlacementSuccess }) {
                   <button
                     key={def.key}
                     disabled={locked}
-                    onClick={function() {
+                    onClick={function () {
                       if (locked) return;
                       if (isSelected) {
                         setSelectedBuilding(null);
                         setHint('');
                       } else {
                         setSelectedBuilding(def.key);
-                        setHint('Tap any empty grass tile to build.');
+                        setHint('Tap any empty tile to build.');
                         setHintIsError(false);
                       }
                     }}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px',
-                      backgroundColor: isSelected ? colors.bgCardRaised : colors.bgDark,
-                      border: '1px solid ' + (isSelected ? colors.purpleLight : colors.border),
-                      color: locked ? colors.textDim : '#fff',
-                      borderRadius: '10px', cursor: locked ? 'not-allowed' : 'pointer',
-                      fontWeight: 'bold', fontFamily: 'monospace', textAlign: 'left',
-                      opacity: locked ? 0.55 : 1
+                      backgroundColor: isSelected ? tokens.panelRaised : tokens.panelSunken,
+                      border: '1px solid ' + (isSelected ? tokens.brass : tokens.line),
+                      color: locked ? tokens.textFaint : tokens.text,
+                      borderRadius: tokens.radiusMd, cursor: locked ? 'not-allowed' : 'pointer',
+                      fontWeight: 700, fontFamily: tokens.fontBody, textAlign: 'left',
+                      opacity: locked ? 0.55 : 1,
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <BuildingIcon name={def.key} size={22} color={locked ? colors.textDim : colors.purpleLight} />
+                      <BuildingIcon name={def.key} size={20} color={locked ? tokens.textFaint : tokens.brass} />
                       <span style={{ fontSize: '13px' }}>{def.label}</span>
                     </div>
                     {locked ? (
-                      <span style={{ fontSize: '11px', color: colors.danger }}>
+                      <span style={{ fontSize: '11px', color: tokens.rust }}>
                         Requires TH {def.townLevelRequired}
                       </span>
                     ) : (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: colors.gold }}>
-                        <IconGold size={13} />
-                        {cost.toLocaleString()}
-                      </span>
+                      <Badge tone="brass" style={{ padding: '3px 9px', fontSize: '11px' }}>
+                        <IconGold size={12} /> {cost.toLocaleString()}
+                      </Badge>
                     )}
                   </button>
                 );
@@ -270,15 +257,15 @@ function Town({ token, gold, elixir, onPlacementSuccess }) {
 
             {hint !== '' && (
               <div style={{
-                marginTop: '14px', padding: '10px', fontSize: '12px', borderRadius: '6px',
-                color: hintIsError ? colors.danger : colors.purpleLight,
-                backgroundColor: colors.bgDark, borderLeft: '3px solid',
-                fontFamily: 'monospace', lineHeight: '1.4'
+                marginTop: '14px', padding: '10px 12px', fontSize: '12px', borderRadius: tokens.radiusMd,
+                color: hintIsError ? tokens.rust : tokens.brass,
+                backgroundColor: tokens.panelSunken, borderLeft: '3px solid ' + (hintIsError ? tokens.rust : tokens.brass),
+                lineHeight: '1.4',
               }}>
                 {hint}
               </div>
             )}
-          </div>
+          </Card>
         </div>
 
       </div>

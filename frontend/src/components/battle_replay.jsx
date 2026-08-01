@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { tokens, Card, Badge, PageHeading, Callout } from './ui';
+import { IconSwords, IconStar, IconGold, IconElixir } from './theme';
 
 function BattleReplay({ token }) {
   const [logs, setLogs] = useState([]);
@@ -15,96 +17,90 @@ function BattleReplay({ token }) {
         'Authorization': 'Bearer ' + token
       }
     })
-    .then(function(res) {
+      .then(function (res) {
         if (!res.ok) {
-            throw new Error('Failed to load battle replays');
+          throw new Error('Failed to load battle replays');
         }
 
-        return res.text().then(function(text) {
-            return text ? JSON.parse(text) : { battles: [] };
+        return res.text().then(function (text) {
+          return text ? JSON.parse(text) : { battles: [] };
         });
-    })
-    .then(function(data) {
-      setLogs(data.battles || []);
-      setLoading(false);
-    })
-    .catch(function(err) {
-      setError(err.message);
-      setLoading(false);
-    });
+      })
+      .then(function (data) {
+        setLogs(data.battles || []);
+        setLoading(false);
+      })
+      .catch(function (err) {
+        setError(err.message);
+        setLoading(false);
+      });
   }
 
-  useEffect(function() {
+  useEffect(function () {
     loadReplayLogs();
   }, [token]);
 
   return (
-    <div style={{ padding: '24px', color: '#e8e8f0' }}>
-      <h2 style={{ fontSize: '20px', color: '#00b4d8', marginBottom: '16px' }}>BATTLE REPLAY HISTORIC LOGS</h2>
-      <p style={{ color: '#8888aa', fontSize: '14px', marginBottom: '24px' }}>
-        Review past battles.
-      </p>
+    <div>
+      <PageHeading eyebrow="Archive" title="Battle Replays" subtitle="Review the outcome of your past raids." />
 
       {loading === true ? (
-        <p style={{ color: '#00b4d8' }}>Synchronizing combat analytics...</p>
+        <p style={{ color: tokens.textDim, fontSize: '13px' }}>Loading battle history…</p>
       ) : error !== '' ? (
-        <p style={{ color: '#ff4d6d' }}>Error: {error}</p>
+        <Callout tone="rust">{error}</Callout>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {logs.map(function(item, idx) {
+          {logs.map(function (item, idx) {
+            const won = item.outcome === 'victory' || item.outcome === 'win';
             return (
-              <div key={item.id || idx} style={{
-                backgroundColor: '#252740',
-                border: '1px solid #3d3f6b',
-                borderRadius: '8px',
-                padding: '16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 'bold', color: item.outcome === 'victory' || item.outcome === 'win' ? '#4ad66d' : '#ff4d6d' }}>
-                    {item.outcome === 'victory' || item.outcome === 'win' ? '⚔️ VICTORY' : 'DEFEAT'}
+              <Card key={item.id || idx} padding={16}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '7px', fontWeight: 700, color: won ? tokens.moss : tokens.rust }}>
+                    <IconSwords size={14} color={won ? tokens.moss : tokens.rust} />
+                    {won ? 'Victory' : 'Defeat'}
                   </span>
-                  <span style={{ fontSize: '12px', color: '#8888aa' }}>
-                    {item.start_time ? new Date(item.start_time).toLocaleString() : 'Past Match'}
+                  <span style={{ fontSize: '12px', color: tokens.textFaint }}>
+                    {item.start_time ? new Date(item.start_time).toLocaleString() : 'Past match'}
                   </span>
                 </div>
-                
-                <div style={{ fontSize: '14px', color: '#edf2f4' }}>
-                  Rival Base ID: <span style={{ fontFamily: 'monospace', color: '#00b4d8' }}>{item.defender_id || item.enemy_id}</span>
+
+                <div style={{ fontSize: '13px', color: tokens.textDim, marginBottom: '10px' }}>
+                  Rival base: <span className="mono" style={{ color: tokens.text }}>{item.defender_id || item.enemy_id}</span>
                 </div>
 
-                <div style={{ display: 'flex', gap: '20px', fontSize: '13px', margin: '4px 0' }}>
-                  <div>Destruction: <strong style={{ color: '#ffb703' }}>{item.destr_pct || item.destruction_percentage || 0}%</strong></div>
-                  <div>Stars: <strong style={{ color: '#ffb703' }}>{'⭐'.repeat(item.stars) || '0'}</strong></div>
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                  <Badge tone="brass" style={{ fontSize: '12px' }}>{item.destr_pct || item.destruction_percentage || 0}% destroyed</Badge>
+                  <Badge tone="brass" style={{ fontSize: '12px' }}>
+                    {Array.from({ length: 3 }).map(function (_, i) {
+                      return <IconStar key={i} size={13} filled={i < (item.stars || 0)} />;
+                    })}
+                  </Badge>
                 </div>
 
-                <div style={{ 
-                  backgroundColor: '#1a1c2e', 
-                  borderRadius: '4px', 
-                  padding: '8px', 
+                <div style={{
+                  backgroundColor: tokens.panelSunken,
+                  borderRadius: tokens.radiusMd,
+                  padding: '10px 12px',
                   fontSize: '12px',
-                  color: '#8888aa',
-                  borderLeft: '3px solid #3d3f6b'
+                  color: tokens.textDim,
+                  borderLeft: '3px solid ' + tokens.line,
+                  display: 'flex', gap: '18px',
                 }}>
-                  Resources Recovered — Gold: <span style={{ color: '#ffd700' }}>{item.gold_looted || 0}</span> | Elixir: <span style={{ color: '#a2d2ff' }}>{item.elixir_looted || 0}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: tokens.brass }}>
+                    <IconGold size={13} /> +{item.gold_looted || 0}
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: tokens.berry }}>
+                    <IconElixir size={13} /> +{item.elixir_looted || 0}
+                  </span>
                 </div>
-              </div>
+              </Card>
             );
           })}
-          
+
           {logs.length === 0 ? (
-            <div style={{ 
-              backgroundColor: '#252740', 
-              border: '1px solid #3d3f6b', 
-              borderRadius: '8px', 
-              padding: '32px', 
-              textAlign: 'center',
-              color: '#8888aa' 
-            }}>
+            <Card style={{ textAlign: 'center', color: tokens.textDim }}>
               No battle records found for your account.
-            </div>
+            </Card>
           ) : null}
         </div>
       )}

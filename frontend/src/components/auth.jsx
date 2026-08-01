@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { tokens, Card, Button, Field, TextInput, Callout } from './ui';
+import forestBg from '../assets/forest.jpeg';
+// Removed troop and portrait imports as they are no longer needed here.
 
 function Auth({ onAuthSuccess }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -12,164 +15,172 @@ function Auth({ onAuthSuccess }) {
     setError('');
     setLoading(true);
 
-    let endpoint = '/register';
-    if (isLogin === true) {
-      endpoint = '/login';
-    }
+    let endpoint = isLogin ? '/login' : '/register';
 
     fetch('http://localhost:8080' + endpoint, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json' 
+      headers: {
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ 
-        username: username, 
-        password: password 
+      body: JSON.stringify({
+        username: username,
+        password: password
       })
     })
-    .then(function (res) {
-      if (res.ok === false) {
-        return res.text().then(function (errorTxt) {
-          throw new Error(errorTxt || 'Something went wrong');
-        });
-      }
-      return res.text(); 
-    })
-    .then(function (textData) {
-      if (isLogin === true) {
-        let parsedData = JSON.parse(textData);
-        onAuthSuccess(parsedData.token);
-      } else {
-        alert('Account created! You can now log in.');
-        setIsLogin(true);
-        setPassword('');
-      }
-      setLoading(false);
-    })
-    .catch(function (err) {
-      setError(err.message);
-      setLoading(false);
-    });
-  } 
+      .then(function (res) {
+        if (res.ok === false) {
+          return res.text().then(function (errorTxt) {
+            throw new Error(errorTxt || 'Something went wrong');
+          });
+        }
+        return res.text();
+      })
+      .then(function (textData) {
+        if (isLogin === true) {
+          let parsedData = JSON.parse(textData);
+          onAuthSuccess(parsedData.token);
+        } else {
+          setIsLogin(true);
+          setPassword('');
+          setError('');
+        }
+        setLoading(false);
+      })
+      .catch(function (err) {
+        setError(err.message);
+        setLoading(false);
+      });
+  }
 
   function toggleAuthMode() {
-    if (isLogin === true) {
-      setIsLogin(false);
-    } else {
-      setIsLogin(true);
-    }
+    setIsLogin(!isLogin);
     setError('');
   }
 
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#1a1c2e',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
+      backgroundColor: tokens.ink, // Fallback color
+      fontFamily: tokens.fontBody,
+      position: 'relative', // Context for absolute background
+      padding: '32px',
     }}>
+
+      {/* ---- 1. Full Screen Background Layer ---- */}
       <div style={{
-        width: '360px',
-        backgroundColor: '#252740',
-        border: '1px solid #3d3f6b',
-        borderRadius: '8px',
-        padding: '32px',
-        boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+        position: 'absolute',
+        inset: 0,
+        zIndex: 0, // Keeps it behind content
+        overflow: 'hidden'
       }}>
-        <h1 style={{ color: '#e8e8f0', textAlign: 'center', fontSize: '22px', marginBottom: '4px' }}>
-          ⚔️ Vanguard
-        </h1>
-        <p style={{ color: '#8888aa', textAlign: 'center', fontSize: '13px', marginBottom: '28px' }}>
-          {isLogin ? 'Sign in to your village' : 'Create a new village'}
-        </p>
+        <img
+          src={forestBg}
+          alt=""
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+          }}
+        />
+        {/* The overlay gradient, deepened for better form readability */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(180deg, rgba(16,18,12,0.4) 0%, rgba(16,18,12,0.7) 50%, rgba(16,18,12,0.9) 100%)',
+        }} />
+      </div>
 
-        {error !== '' ? (
+      {/* ---- 2. Content Layer (Form) ---- */}
+      <div style={{
+        width: '100%',
+        maxWidth: '380px',
+        position: 'relative', // Required for z-index to work
+        zIndex: 1, // Layers above background
+      }}>
+
+        {/* Logo and Header Section */}
+        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
           <div style={{
-            backgroundColor: '#3d1a1a',
-            border: '1px solid #7a2020',
-            color: '#ff8888',
-            padding: '10px',
-            borderRadius: '4px',
-            fontSize: '13px',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: '52px', height: '52px', borderRadius: tokens.radiusMd,
+            backgroundColor: tokens.brassSoft, border: '1px solid ' + tokens.brassDim,
             marginBottom: '16px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)', // Added shadow to pop
           }}>
-            {error}
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+              <path d="M3 21 11 13M21 3l-8 8" stroke={tokens.brass} strokeWidth="1.8" strokeLinecap="round" />
+              <path d="M3 3l4 1 1 4-2 2-4-1Z" fill={tokens.brass} />
+              <path d="M21 21l-4-1-1-4 2-2 4 1Z" fill={tokens.brass} />
+            </svg>
           </div>
-        ) : null}
+          <h1 style={{
+            fontFamily: tokens.fontDisplay,
+            fontSize: '28px', // Slightly larger
+            color: tokens.text,
+            margin: 0,
+            textShadow: '0 2px 4px rgba(0,0,0,0.5)' // Added shadow
+          }}>
+            Vanguard
+          </h1>
+          <p style={{
+            color: '#f1ead2', // Brighter color against dark background
+            fontSize: '14px',
+            marginTop: '8px',
+            textShadow: '0 1px 2px rgba(0,0,0,0.5)' // Added shadow
+          }}>
+            {isLogin ? 'Sign in to command your village' : 'Found a new village'}
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '14px' }}>
-            <label style={{ display: 'block', color: '#aaaacc', fontSize: '13px', marginBottom: '6px' }}>
-              Username
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={function (e) { setUsername(e.target.value); }}
-              required
-              placeholder="Enter your username"
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                backgroundColor: '#1a1c2e',
-                border: '1px solid #3d3f6b',
-                borderRadius: '4px',
-                color: '#e8e8f0',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
+        {/* Form Card */}
+        <Card style={{
+          boxShadow: '0 12px 32px rgba(0,0,0,0.5)', // Deepened shadow
+          backdropFilter: 'blur(4px)', // Optional: slight blur effect on the card
+        }}>
+          {error !== '' ? <Callout tone="rust" style={{ marginBottom: '16px' }}>{error}</Callout> : null}
 
-          <div style={{ marginBottom: '22px' }}>
-            <label style={{ display: 'block', color: '#aaaacc', fontSize: '13px', marginBottom: '6px' }}>
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={function (e) { setPassword(e.target.value); }}
-              required
-              placeholder="Enter your password"
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                backgroundColor: '#1a1c2e',
-                border: '1px solid #3d3f6b',
-                borderRadius: '4px',
-                color: '#e8e8f0',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
+          <form onSubmit={handleSubmit}>
+            <Field label="Username">
+              <TextInput
+                type="text"
+                value={username}
+                onChange={function (e) { setUsername(e.target.value); }}
+                required
+                placeholder="Enter your username"
+              />
+            </Field>
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '12px',
-              backgroundColor: loading ? '#444466' : '#5b4fcf',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              letterSpacing: '0.5px',
-            }}
-          >
-            {loading === true ? 'Loading...' : isLogin ? 'Sign In' : 'Create Account'}
-          </button>
-        </form>
+            <Field label="Password">
+              <TextInput
+                type="password"
+                value={password}
+                onChange={function (e) { setPassword(e.target.value); }}
+                required
+                placeholder="Enter your password"
+              />
+            </Field>
 
-        <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '13px', color: '#8888aa' }}>
-          {isLogin ? "Don't have an account? " : 'Already have an account? '}
+            <Button type="submit" variant="primary" fullWidth disabled={loading} style={{ marginTop: '12px' }}>
+              {loading === true ? 'Please wait…' : isLogin ? 'Sign in' : 'Create account'}
+            </Button>
+          </form>
+        </Card>
+
+        {/* Toggle link */}
+        <p style={{
+          textAlign: 'center',
+          marginTop: '24px',
+          fontSize: '14px',
+          color: '#f1ead2', // Brighter color against dark background
+          textShadow: '0 1px 2px rgba(0,0,0,0.5)'
+        }}>
+          {isLogin ? "Don't have a village yet? " : 'Already have a village? '}
           <span
             onClick={toggleAuthMode}
-            style={{ color: '#7b6fdc', cursor: 'pointer', textDecoration: 'underline' }}
+            style={{ color: tokens.brass, cursor: 'pointer', fontWeight: 700 }}
           >
             {isLogin ? 'Register' : 'Sign in'}
           </span>
